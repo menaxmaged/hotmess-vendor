@@ -1,5 +1,5 @@
 /**
- * Global API response envelope — shared by every Modules/*/api.ts
+ * Global API response envelope — shared by every Modules/<name>/api.ts
  */
 export interface ApiResponse<T = unknown> {
   success?: boolean;

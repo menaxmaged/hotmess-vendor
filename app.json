@@ -6,7 +6,8 @@
     "scheme": "hotmess-vendor",
     "platforms": [
       "ios",
-      "android"
+      "android",
+      "web"
     ],
     "web": {
       "bundler": "metro",
@@ -24,7 +25,13 @@
       ],
       "expo-localization",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hot Mess needs access to your photos to set your cover image and portfolio."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

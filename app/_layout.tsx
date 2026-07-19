@@ -3,13 +3,17 @@ import 'expo-dev-client';
 import { ThemeProvider as NavThemeProvider } from 'expo-router/react-navigation';
 
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
-
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
-
-import { ThemeToggle } from '@/components/nativewindui/ThemeToggle';
+import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
+import { AuthProvider, useAuth } from '@/Modules/auth/context';
+import { queryClient } from '@/lib/query-client';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { NAV_THEME } from '@/theme';
 
@@ -22,29 +26,46 @@ export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
 
   return (
-    <>
-      <StatusBar
-        key={`root-status-bar-${isDarkColorScheme ? 'light' : 'dark'}`}
-        style={isDarkColorScheme ? 'light' : 'dark'}
-      />
-      {/* WRAP YOUR APP WITH ANY ADDITIONAL PROVIDERS HERE */}
-      {/* <ExampleProvider> */}
-       
-        
-        <ActionSheetProvider>
-        
-          <NavThemeProvider value={NAV_THEME[colorScheme]}>
-            <Stack screenOptions={SCREEN_OPTIONS}>
-              <Stack.Screen name="(tabs)" options={TABS_OPTIONS} />
-              <Stack.Screen name="modal" options={MODAL_OPTIONS} />
-            </Stack>
-          </NavThemeProvider>
-        
-        </ActionSheetProvider>
-        
-              
-      {/* </ExampleProvider> */}
-    </>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <KeyboardProvider>
+          <AuthProvider>
+            <StatusBar
+              key={`root-status-bar-${isDarkColorScheme ? 'light' : 'dark'}`}
+              style={isDarkColorScheme ? 'light' : 'dark'}
+            />
+            <ActionSheetProvider>
+              <NavThemeProvider value={NAV_THEME[colorScheme]}>
+                <RootNavigator />
+              </NavThemeProvider>
+            </ActionSheetProvider>
+          </AuthProvider>
+        </KeyboardProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function RootNavigator() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <Stack screenOptions={SCREEN_OPTIONS}>
+      <Stack.Protected guard={!isAuthenticated}>
+        <Stack.Screen name="(auth)" options={GROUP_OPTIONS} />
+      </Stack.Protected>
+      <Stack.Protected guard={isAuthenticated}>
+        <Stack.Screen name="(app)" options={GROUP_OPTIONS} />
+      </Stack.Protected>
+    </Stack>
   );
 }
 
@@ -52,13 +73,6 @@ const SCREEN_OPTIONS = {
   animation: 'ios_from_right', // for android
 } as const;
 
-const TABS_OPTIONS = {
+const GROUP_OPTIONS = {
   headerShown: false,
-} as const;
-
-const MODAL_OPTIONS = {
-  presentation: 'modal',
-  animation: 'fade_from_bottom', // for android
-  title: 'Settings',
-  headerRight: () => <ThemeToggle />,
 } as const;

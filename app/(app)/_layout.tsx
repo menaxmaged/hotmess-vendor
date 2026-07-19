@@ -1,35 +1,58 @@
-import { Link, Tabs } from "expo-router";
-import { HeaderButton } from '../../components/HeaderButton';
-import { TabBarIcon } from '../../components/TabBarIcon';
+import { Tabs } from 'expo-router';
+import type { ColorValue } from 'react-native';
 
+import { Icon } from '@/components/nativewindui/Icon';
+import { useColorScheme } from '@/lib/useColorScheme';
 
+const asString = (color: ColorValue) => color as string;
 
-export default function TabLayout() {
+export default function AppTabsLayout() {
+  const { colors } = useColorScheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: 'black',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.grey,
       }}>
       <Tabs.Screen
-        name='index'
+        name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href='/modal' asChild>
-                  <HeaderButton  />
-            </Link>
-          ),
+          title: 'Home',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Icon name="house.fill" color={asString(color)} />,
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="inbox"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: 'Inbox',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Icon name="tray.fill" color={asString(color)} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color }) => <Icon name="calendar" color={asString(color)} />,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: 'Analytics',
+          tabBarIcon: ({ color }) => <Icon name="chart.bar.fill" color={asString(color)} />,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Icon name="ellipsis.circle.fill" color={asString(color)} />,
         }}
       />
     </Tabs>
   );
 }
-
