@@ -3,7 +3,8 @@
  * Profile & Settings Feature - API Service
  */
 
-import { api, apiFormData } from "@/lib/api-client";
+import { api, apiFormData, USE_MOCK_DATA } from "@/lib/api-client";
+import { mockProfileApi } from "./mock";
 import type {
     CategoryOptions,
     InstagramStatus,
@@ -37,7 +38,7 @@ const unwrapPayload = <T>(payload: unknown, key?: string): T => {
   return payload as T;
 };
 
-export const profileApi = {
+const liveProfileApi = {
   getOverview: async (): Promise<ProfileOverview> => {
     const response = await api.get<unknown>("/vendor/profile/overview");
     return unwrapPayload<ProfileOverview>(response.data);
@@ -110,3 +111,7 @@ export const profileApi = {
     await api.delete(`/vendor/profile/files/${fileId}`);
   },
 };
+
+export const profileApi: typeof liveProfileApi = USE_MOCK_DATA
+  ? mockProfileApi
+  : liveProfileApi;

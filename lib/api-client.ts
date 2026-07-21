@@ -23,8 +23,12 @@ const API_BASE_URL =
 
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? "example";
 
-const TOKEN_KEY = "onesyo_token";
-const CACHE_PREFIX = "onesyo_cache:";
+// Set EXPO_PUBLIC_USE_MOCK_DATA=true to make every Modules/*/api.ts serve
+// in-memory mock data instead of hitting the network. Toggled per-build via env.
+export const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+
+const TOKEN_KEY = "hotmess_token";
+const CACHE_PREFIX = "hotmess_cache:";
 const CACHE_TTL_MS = 1000 * 60 * 10;
 
 type CachedEntry<T> = {

@@ -3,7 +3,8 @@
  * Team & Roles Feature - API Service
  */
 
-import { api } from "@/lib/api-client";
+import { api, USE_MOCK_DATA } from "@/lib/api-client";
+import { mockTeamApi } from "./mock";
 import type {
     CreateRoleInput,
     InviteMemberInput,
@@ -31,7 +32,7 @@ const unwrapPayload = <T>(payload: unknown, key?: string): T => {
   return payload as T;
 };
 
-export const teamApi = {
+const liveTeamApi = {
   getOverview: async (): Promise<TeamOverview> => {
     const response = await api.get<unknown>("/vendor/team/overview");
     return unwrapPayload<TeamOverview>(response.data);
@@ -74,3 +75,5 @@ export const teamApi = {
     await api.delete(`/vendor/team/roles/${roleId}`);
   },
 };
+
+export const teamApi: typeof liveTeamApi = USE_MOCK_DATA ? mockTeamApi : liveTeamApi;

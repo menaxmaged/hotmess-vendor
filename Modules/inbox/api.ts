@@ -3,7 +3,8 @@
  * Inbox Feature - API Service
  */
 
-import { api, apiFormData } from "@/lib/api-client";
+import { api, apiFormData, USE_MOCK_DATA } from "@/lib/api-client";
+import { mockInboxApi } from "./mock";
 import type {
     AddNoteInput,
     AssignChatInput,
@@ -35,7 +36,7 @@ const unwrapPayload = <T>(payload: unknown, key?: string): T => {
   return payload as T;
 };
 
-export const inboxApi = {
+const liveInboxApi = {
   getChats: async (params?: ChatListParams): Promise<ChatListResponse> => {
     const response = await api.get<unknown>("/vendor/chats", { params });
     return unwrapPayload<ChatListResponse>(response.data);
@@ -126,3 +127,5 @@ export const inboxApi = {
     return unwrapPayload<ChatSummary>(response.data);
   },
 };
+
+export const inboxApi: typeof liveInboxApi = USE_MOCK_DATA ? mockInboxApi : liveInboxApi;

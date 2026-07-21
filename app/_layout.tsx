@@ -3,6 +3,12 @@ import 'expo-dev-client';
 import { ThemeProvider as NavThemeProvider } from 'expo-router/react-navigation';
 
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
+import {
+  Fraunces_400Regular,
+  Fraunces_700Bold,
+  Fraunces_800ExtraBold_Italic,
+  useFonts,
+} from '@expo-google-fonts/fraunces';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { Stack } from 'expo-router';
@@ -24,6 +30,19 @@ export {
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
+  const [fontsLoaded] = useFonts({
+    Fraunces_400Regular,
+    Fraunces_700Bold,
+    Fraunces_800ExtraBold_Italic,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

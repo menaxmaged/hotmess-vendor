@@ -53,6 +53,7 @@ export default function AppTabsLayout() {
           tabBarIcon: ({ color }) => <Icon name="ellipsis.circle.fill" color={asString(color)} />,
         }}
       />
+      <Tabs.Screen name="finance" options={{ href: null, headerShown: false }} />
     </Tabs>
   );
 }

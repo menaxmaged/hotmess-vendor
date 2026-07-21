@@ -3,7 +3,8 @@
  * Home Dashboard Feature - API Service
  */
 
-import { api } from "@/lib/api-client";
+import { api, USE_MOCK_DATA } from "@/lib/api-client";
+import { mockHomeApi } from "./mock";
 import type { AdsSummary, HomeOverview, SubscriptionSummary } from "./types";
 
 const unwrapPayload = <T>(payload: unknown, key?: string): T => {
@@ -24,7 +25,7 @@ const unwrapPayload = <T>(payload: unknown, key?: string): T => {
   return payload as T;
 };
 
-export const homeApi = {
+const liveHomeApi = {
   getOverview: async (): Promise<HomeOverview> => {
     const response = await api.get<unknown>("/vendor/home/overview");
     return unwrapPayload<HomeOverview>(response.data);
@@ -40,3 +41,5 @@ export const homeApi = {
     return unwrapPayload<SubscriptionSummary>(response.data);
   },
 };
+
+export const homeApi: typeof liveHomeApi = USE_MOCK_DATA ? mockHomeApi : liveHomeApi;

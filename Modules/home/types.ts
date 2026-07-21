@@ -42,8 +42,22 @@ export interface HomeInsight {
   description: string;
 }
 
+export interface RevenuePoint {
+  month: string;
+  value: number;
+}
+
+export interface HomeRevenue {
+  label: string;
+  amount: number;
+  deltaPct: number;
+  spark: number[];
+  monthly: RevenuePoint[];
+}
+
 export interface HomeOverview {
   setupChecklist: SetupChecklist | null;
+  revenue: HomeRevenue | null;
   kpis: HomeKpis;
   funnel: FunnelStep[];
   teamToday: TeamMemberActivity[] | null;

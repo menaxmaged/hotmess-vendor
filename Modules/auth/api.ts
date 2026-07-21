@@ -3,7 +3,8 @@
  * Auth Feature - API Service
  */
 
-import { api, apiFormData, tokenManager } from "@/lib/api-client";
+import { api, apiFormData, tokenManager, USE_MOCK_DATA } from "@/lib/api-client";
+import { mockAuthApi } from "./mock";
 import type {
     CheckAuthResponse,
     LoginCredentials,
@@ -35,7 +36,7 @@ const unwrapPayload = <T>(payload: unknown, key?: string): T => {
   return payload as T;
 };
 
-export const authApi = {
+const liveAuthApi = {
   register: async (data: RegisterRequest): Promise<RegisterResponse> => {
     const response = await api.post<any>("/auth/register", data);
     return response.data;
@@ -99,3 +100,5 @@ export const authApi = {
     }
   },
 };
+
+export const authApi: typeof liveAuthApi = USE_MOCK_DATA ? mockAuthApi : liveAuthApi;

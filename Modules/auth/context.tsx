@@ -14,7 +14,7 @@ import type { LoginResponse } from "./types";
 
 type AuthUser = LoginResponse["user"];
 
-const USER_KEY = "onesyo_user";
+const USER_KEY = "hotmess_user";
 
 const hasWebStorage = () =>
   Platform.OS === "web" && typeof globalThis.localStorage !== "undefined";
