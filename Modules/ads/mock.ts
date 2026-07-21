@@ -2,8 +2,8 @@
  * Sponsored Ads Feature - Mock Data
  */
 
-import { mockDelay } from "@/lib/mock-utils";
-import type { AdsData } from "./types";
+import { mockDelay, mockId } from "@/lib/mock-utils";
+import type { AdsData, Campaign, CampaignInput } from "./types";
 
 const MOCK_ADS: AdsData = {
   roiX: 4.2,
@@ -28,5 +28,20 @@ export const mockAdsApi = {
   getAds: async (): Promise<AdsData> => {
     await mockDelay();
     return MOCK_ADS;
+  },
+
+  createCampaign: async (input: CampaignInput): Promise<Campaign> => {
+    await mockDelay();
+    const placement = MOCK_ADS.placements.find((p) => p.id === input.placementId);
+    const campaign: Campaign = {
+      id: mockId(),
+      name: input.name,
+      placement: `${placement?.name ?? "Placement"} · ${input.city}`,
+      status: "pending",
+      impressions: 0,
+      clicks: 0,
+    };
+    MOCK_ADS.campaigns = [campaign, ...MOCK_ADS.campaigns];
+    return campaign;
   },
 };

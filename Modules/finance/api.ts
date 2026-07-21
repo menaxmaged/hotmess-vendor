@@ -4,7 +4,7 @@
 
 import { api, USE_MOCK_DATA } from "@/lib/api-client";
 import { mockFinanceApi } from "./mock";
-import type { FinanceOverview, FinanceRange } from "./types";
+import type { AddPaymentInput, BridePayment, FinanceOverview, FinanceRange } from "./types";
 
 const unwrap = <T>(payload: unknown): T => {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
@@ -20,6 +20,11 @@ const liveFinanceApi = {
   getOverview: async (range: FinanceRange): Promise<FinanceOverview> => {
     const response = await api.get<unknown>("/vendor/finance", { params: { range } });
     return unwrap<FinanceOverview>(response.data);
+  },
+
+  addPayment: async (input: AddPaymentInput): Promise<BridePayment> => {
+    const response = await api.post<unknown>("/vendor/finance/payments", input);
+    return unwrap<BridePayment>(response.data);
   },
 };
 

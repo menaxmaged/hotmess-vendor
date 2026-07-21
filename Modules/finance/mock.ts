@@ -3,7 +3,12 @@
  */
 
 import { mockDelay } from "@/lib/mock-utils";
-import type { BridePayment, FinanceOverview, FinanceRange } from "./types";
+import type {
+  AddPaymentInput,
+  BridePayment,
+  FinanceOverview,
+  FinanceRange,
+} from "./types";
 
 const now = Date.now();
 const daysFromNow = (d: number) => new Date(now + d * 86400000).toISOString();
@@ -37,5 +42,15 @@ export const mockFinanceApi = {
       summary: { received, deposits, remaining, quoted },
       payments: PAYMENTS,
     };
+  },
+
+  addPayment: async (input: AddPaymentInput): Promise<BridePayment> => {
+    await mockDelay();
+    const payment = PAYMENTS.find((p) => p.id === input.brideId);
+    if (!payment) throw new Error("Bride not found");
+    payment.received = Math.min(payment.received + input.amount, payment.total);
+    if (payment.received >= payment.total) payment.status = "paid";
+    else if (payment.received > 0) payment.status = "partial";
+    return payment;
   },
 };

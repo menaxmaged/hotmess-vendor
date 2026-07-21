@@ -31,3 +31,14 @@ export interface AdsData {
   placements: Placement[];
   campaigns: Campaign[];
 }
+
+export type CampaignDuration = "1w" | "2w" | "1m";
+
+export interface CampaignInput {
+  name: string;
+  placementId: string;
+  city: string;
+  duration: CampaignDuration;
+  headline: string;
+  ctaText: string;
+}

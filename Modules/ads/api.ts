@@ -4,7 +4,7 @@
 
 import { api, USE_MOCK_DATA } from "@/lib/api-client";
 import { mockAdsApi } from "./mock";
-import type { AdsData } from "./types";
+import type { AdsData, Campaign, CampaignInput } from "./types";
 
 const unwrap = <T>(payload: unknown): T => {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
@@ -20,6 +20,11 @@ const liveAdsApi = {
   getAds: async (): Promise<AdsData> => {
     const response = await api.get<unknown>("/vendor/ads");
     return unwrap<AdsData>(response.data);
+  },
+
+  createCampaign: async (input: CampaignInput): Promise<Campaign> => {
+    const response = await api.post<unknown>("/vendor/ads/campaigns", input);
+    return unwrap<Campaign>(response.data);
   },
 };
 
