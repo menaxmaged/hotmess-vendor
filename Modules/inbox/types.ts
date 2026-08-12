@@ -20,6 +20,8 @@ export type LeadStatus =
   | "unavailable"
   | "archived";
 
+// Real backend's `sort` param only supports recent|oldest|follow_up — "unread"
+// and "amount" have no server equivalent and fall back to "recent" in api.ts.
 export type SortOption = "recent" | "unread" | "follow_up" | "amount";
 
 export type AssigneeFilter = "all" | "me" | "unassigned" | string;

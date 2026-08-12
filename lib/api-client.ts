@@ -19,7 +19,7 @@ import { Platform } from "react-native";
 const API_BASE_URL =
   Constants.expoConfig?.extra?.apiUrl ||
   process.env.EXPO_PUBLIC_API_URL ||
-  "http://localhost:3000";
+  "https://hotmess-api.codexeg.net/v1";
 
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY ?? "example";
 
@@ -153,7 +153,6 @@ export const api = {
     url: string,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<ApiResponse<T>>> => {
-    console.log("GET Request to:", url, "with config:", config);
     const isWeb = Platform.OS === "web" && typeof window !== "undefined";
     const cacheKey = isWeb ? getCacheKey(url, config) : "";
 
@@ -183,7 +182,6 @@ export const api = {
     data?: any,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<ApiResponse<T>>> => {
-    console.log("POST Request to:", url, "with data:", data);
     return apiClient.post(url, data, config);
   },
 
@@ -192,7 +190,6 @@ export const api = {
     data?: any,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<ApiResponse<T>>> => {
-    console.log("PUT Request to:", url, "with data:", data);
     return apiClient.put(url, data, config);
   },
 
@@ -200,7 +197,6 @@ export const api = {
     url: string,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<ApiResponse<T>>> => {
-    console.log("DELETE Request to:", url, "with config:", config);
     return apiClient.delete(url, config);
   },
 
@@ -209,7 +205,6 @@ export const api = {
     data?: any,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<ApiResponse<T>>> => {
-    console.log("PATCH Request to:", url, "with data:", data);
     return apiClient.patch(url, data, config);
   },
 };

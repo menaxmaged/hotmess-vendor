@@ -13,6 +13,9 @@ export const calendarKeys = {
 export const useCalendarEvents = () => {
   return useQuery({
     queryKey: calendarKeys.events(),
-    queryFn: calendarApi.getEvents,
+    // Explicit wrapper, not a bare `calendarApi.getEvents` reference — react-query
+    // calls queryFn with a context object ({queryKey, signal, ...}) as its first
+    // arg, which would otherwise leak into getEvents' optional `range` param.
+    queryFn: () => calendarApi.getEvents(),
   });
 };

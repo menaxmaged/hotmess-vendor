@@ -7,8 +7,6 @@ import { mockDelay } from "@/lib/mock-utils";
 import type {
     LoginCredentials,
     LoginResponse,
-    RegisterRequest,
-    RegisterResponse,
     ResendOTPRequest,
     ResetPasswordRequest,
     UpdateProfileRequest,
@@ -19,18 +17,13 @@ import type {
 const MOCK_USER: User = {
   id: "mock-vendor-1",
   name: "Amira Studio",
-  role: "ADMIN",
+  accountType: "vendor",
   email: "vendor@hotmess.dev",
   phone: "+20 100 000 0000",
   timezone: "Africa/Cairo",
 };
 
 export const mockAuthApi = {
-  register: async (_data: RegisterRequest): Promise<RegisterResponse> => {
-    await mockDelay();
-    return { message_en: "Account created" };
-  },
-
   verifyOTP: async (_data: VerifyOTPRequest) => {
     await mockDelay();
     return { success: true };

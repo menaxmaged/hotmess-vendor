@@ -1,20 +1,13 @@
 /**
  * Inbox Feature - Mock Data
+ *
+ * Only feeds `inboxApi.getChat`'s mock-first fallback now (see api.ts) — every
+ * other real endpoint went live in the Day 1 backend-wiring pass, so the mock
+ * mutation methods that used to paper over "not available yet" are gone.
  */
 
-import { mockDelay, mockId } from "@/lib/mock-utils";
-import type {
-    AddNoteInput,
-    AssignChatInput,
-    ChatListParams,
-    ChatListResponse,
-    ChatSummary,
-    ChatThread,
-    Message,
-    SendMessageInput,
-    SetFollowUpInput,
-    UpdateStatusInput,
-} from "./types";
+import { mockId } from "@/lib/mock-utils";
+import type { ChatSummary, ChatThread, Message } from "./types";
 
 const OWNER = { id: "mock-vendor-1", name: "Amira Studio" };
 const TEAM = [
@@ -277,53 +270,6 @@ const brideDetailByChat: Record<string, ChatThread["bride"]> = {
   },
 };
 
-const buildBuckets = () => {
-  const counts = { all: 0, me: 0, unassigned: 0 } as Record<string, number>;
-  for (const member of TEAM) counts[member.id] = 0;
-
-  for (const chat of chats) {
-    if (chat.archived) continue;
-    counts.all!++;
-    if (!chat.assignee) counts.unassigned!++;
-    else if (chat.assignee.id === OWNER.id) counts.me!++;
-    else counts[chat.assignee.id] = (counts[chat.assignee.id] ?? 0) + 1;
-  }
-
-  return [
-    { id: "all" as const, label: "All", count: counts.all! },
-    { id: "me" as const, label: "Me", count: counts.me! },
-    ...TEAM.map((m) => ({ id: m.id, label: m.name, count: counts[m.id] ?? 0 })),
-    { id: "unassigned" as const, label: "Unassigned", count: counts.unassigned! },
-  ];
-};
-
-const matchesAssignee = (chat: ChatSummary, assignee?: string) => {
-  if (!assignee || assignee === "all") return true;
-  if (assignee === "me") return chat.assignee?.id === OWNER.id;
-  if (assignee === "unassigned") return !chat.assignee;
-  return chat.assignee?.id === assignee;
-};
-
-const sortChats = (list: ChatSummary[], sort?: string) => {
-  const sorted = [...list];
-  switch (sort) {
-    case "unread":
-      return sorted.sort((a, b) => b.unreadCount - a.unreadCount);
-    case "follow_up":
-      return sorted.sort((a, b) => {
-        if (!a.followUpDate) return 1;
-        if (!b.followUpDate) return -1;
-        return new Date(a.followUpDate).getTime() - new Date(b.followUpDate).getTime();
-      });
-    case "amount":
-      return sorted.sort((a, b) => (b.contractValue ?? 0) - (a.contractValue ?? 0));
-    default:
-      return sorted.sort(
-        (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
-      );
-  }
-};
-
 const findChat = (chatId: string): ChatSummary => {
   const chat = chats.find((c) => c.id === chatId);
   if (!chat) throw new Error(`Mock chat not found: ${chatId}`);
@@ -331,107 +277,10 @@ const findChat = (chatId: string): ChatSummary => {
 };
 
 export const mockInboxApi = {
-  getChats: async (params?: ChatListParams): Promise<ChatListResponse> => {
-    await mockDelay();
-    let filtered = chats.filter((c) => !c.archived);
-    filtered = filtered.filter((c) => matchesAssignee(c, params?.assignee));
-    if (params?.status) filtered = filtered.filter((c) => c.status === params.status);
-    if (params?.search) {
-      const q = params.search.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.brideName.toLowerCase().includes(q) ||
-          c.occasionType.toLowerCase().includes(q) ||
-          (c.city ?? "").toLowerCase().includes(q) ||
-          c.lastMessagePreview.toLowerCase().includes(q),
-      );
-    }
-    filtered = sortChats(filtered, params?.sort);
-
-    return { chats: filtered, assigneeBuckets: buildBuckets() };
-  },
-
   getChat: async (chatId: string): Promise<ChatThread> => {
-    await mockDelay();
     const chat = findChat(chatId);
     const bride = brideDetailByChat[chatId];
     if (!bride) throw new Error(`Mock bride detail not found: ${chatId}`);
     return { chat, bride, messages: messagesByChat[chatId] ?? [] };
-  },
-
-  sendMessage: async (input: SendMessageInput): Promise<Message> => {
-    await mockDelay(200);
-    const message: Message = {
-      id: mockId(),
-      chatId: input.chatId,
-      sender: "vendor",
-      text: input.text,
-      attachments: input.attachments?.map((a) => ({ url: a.uri, name: a.name, type: a.type })),
-      createdAt: new Date().toISOString(),
-    };
-    messagesByChat[input.chatId] = [...(messagesByChat[input.chatId] ?? []), message];
-
-    const chat = findChat(input.chatId);
-    chat.lastMessagePreview = input.text ?? "Sent an attachment";
-    chat.lastMessageAt = message.createdAt;
-
-    return message;
-  },
-
-  updateStatus: async (input: UpdateStatusInput): Promise<ChatSummary> => {
-    await mockDelay(200);
-    const chat = findChat(input.chatId);
-    chat.status = input.status;
-    return chat;
-  },
-
-  assignChat: async (input: AssignChatInput): Promise<ChatSummary> => {
-    await mockDelay(200);
-    const chat = findChat(input.chatId);
-    const member = [OWNER, ...TEAM].find((m) => m.id === input.assigneeId);
-    chat.assignee = member ? { id: member.id, name: member.name } : null;
-    return chat;
-  },
-
-  togglePin: async (chatId: string, pinned: boolean): Promise<ChatSummary> => {
-    await mockDelay(150);
-    const chat = findChat(chatId);
-    chat.pinned = pinned;
-    return chat;
-  },
-
-  toggleArchive: async (chatId: string, archived: boolean): Promise<ChatSummary> => {
-    await mockDelay(150);
-    const chat = findChat(chatId);
-    chat.archived = archived;
-    return chat;
-  },
-
-  setFollowUp: async (input: SetFollowUpInput): Promise<ChatSummary> => {
-    await mockDelay(150);
-    const chat = findChat(input.chatId);
-    chat.followUpDate = input.followUpDate;
-    return chat;
-  },
-
-  addNote: async (input: AddNoteInput): Promise<Message> => {
-    await mockDelay(200);
-    const note: Message = {
-      id: mockId(),
-      chatId: input.chatId,
-      sender: "system",
-      text: input.note,
-      isNote: true,
-      createdAt: new Date().toISOString(),
-    };
-    messagesByChat[input.chatId] = [...(messagesByChat[input.chatId] ?? []), note];
-    return note;
-  },
-
-  markUnread: async (chatId: string): Promise<ChatSummary> => {
-    await mockDelay(150);
-    const chat = findChat(chatId);
-    chat.unreadCount = Math.max(chat.unreadCount, 1);
-    return chat;
   },
 };

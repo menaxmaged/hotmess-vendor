@@ -10,7 +10,7 @@ import {
 import { Platform } from "react-native";
 import { getErrorMessage, tokenManager } from "../../lib/api-client";
 import { authApi } from "./api";
-import type { LoginResponse } from "./types";
+import type { LoginResponse, VendorSignupRequest } from "./types";
 
 type AuthUser = LoginResponse["user"];
 
@@ -57,7 +57,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   hasRole: (role: string | string[]) => boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (input: VendorSignupRequest) => Promise<void>;
   signOut: () => void;
 }
 
@@ -105,6 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Revoke server-side too — best-effort, local sign-out proceeds regardless
+    // of network state. (Previously nothing called authApi.logout(); the token
+    // only ever cleared client-side.)
+    void authApi.logout().catch(() => {});
     setUser(null);
     void tokenManager.remove();
     void userCache.clear();
@@ -117,9 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasRole = (role: string | string[]): boolean => {
-    if (!user) return false;
+    if (!user?.accountType) return false;
     const roles = Array.isArray(role) ? role : [role];
-    return roles.includes(user.role);
+    return roles.includes(user.accountType);
   };
 
   const refreshUser = async () => {
@@ -151,22 +155,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (name: string, email: string, password: string) => {
+  const signUp = async (input: VendorSignupRequest) => {
     setIsLoading(true);
     try {
-      const [firstName, ...rest] = name.trim().split(" ");
-      await authApi.register({
-        firstName: firstName || "User",
-        lastName: rest.join(" ") || "User",
-        email,
-        countryCode: "US",
-        dialCode: "+1",
-        phone: "0000000000",
-        dateOfBirth: "1990-01-01",
-        gender: "male",
-        password,
-      });
-      await signIn(email, password);
+      const response = await authApi.register(input);
+      if (!response.user || !response.token) throw new Error("Invalid signup response from server");
+      login(response);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     } finally {
