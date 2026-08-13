@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Card, DISPLAY, SectionLabel } from '@/components/brand';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
-import { useHomeSubscriptionSummary } from '@/Modules/home/hooks';
+import { useMergeFields, useSetWelcomeFlow, useWelcomeFlow } from '@/Modules/automation/hooks';
+import type { WelcomeFlow, WelcomeFlowMode } from '@/Modules/automation/types';
+import { useSubscription } from '@/Modules/subscription/hooks';
+import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 type Mode = 'off' | 'welcome' | 'welcome_q' | 'welcome_files' | 'full';
@@ -17,22 +20,68 @@ const MODES: { key: Mode; label: string; desc: string; premium: boolean }[] = [
   { key: 'full', label: 'Welcome + questions + files', desc: 'Full intake sequence.', premium: true },
 ];
 
-const MERGE_FIELDS = ['{bride_name}', '{groom_name}', '{occasion}', '{date}', '{location}'];
+const MODE_TO_REAL: Record<Mode, WelcomeFlowMode> = {
+  off: 'off',
+  welcome: 'welcome',
+  welcome_q: 'welcome_questions',
+  welcome_files: 'welcome_files',
+  full: 'welcome_questions_files',
+};
+
+const REAL_TO_MODE: Record<WelcomeFlowMode, Mode> = {
+  off: 'off',
+  welcome: 'welcome',
+  welcome_questions: 'welcome_q',
+  welcome_files: 'welcome_files',
+  welcome_questions_files: 'full',
+};
 
 export default function AutomationScreen() {
-  const { colors } = useColorScheme();
-  const { data: sub } = useHomeSubscriptionSummary();
-  const isPremium = sub?.plan === 'premium';
+  const { data: flow, isLoading, isError, error } = useWelcomeFlow();
+  const { data: mergeFields } = useMergeFields();
+  const { data: sub } = useSubscription();
+  const isPremium = sub?.isPremium ?? false;
 
-  const [mode, setMode] = useState<Mode>('welcome');
-  const [message, setMessage] = useState(
-    'Hi {bride_name}! Thanks for reaching out about your {occasion} on {date}. We’d love to help — a few quick questions and we’ll send you our packages ✨',
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (isError || !flow) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background p-6">
+        <Text color="tertiary">{getErrorMessage(error)}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <AutomationForm
+      initial={flow}
+      mergeFieldTokens={(mergeFields ?? []).map((f) => f.token)}
+      isPremium={isPremium}
+    />
   );
-  const [questions, setQuestions] = useState<string[]>([
-    'What is your estimated guest count?',
-    'What is your budget range?',
-    'Which package caught your eye?',
-  ]);
+}
+
+function AutomationForm({
+  initial,
+  mergeFieldTokens,
+  isPremium,
+}: {
+  initial: WelcomeFlow;
+  mergeFieldTokens: string[];
+  isPremium: boolean;
+}) {
+  const { colors } = useColorScheme();
+  const setWelcomeFlow = useSetWelcomeFlow();
+
+  const [mode, setMode] = useState<Mode>(REAL_TO_MODE[initial.mode]);
+  const [message, setMessage] = useState(initial.message ?? '');
+  const [questions, setQuestions] = useState<string[]>(initial.questions.map((q) => q.prompt));
   const [newQuestion, setNewQuestion] = useState('');
 
   const showQuestions = mode === 'welcome_q' || mode === 'full';
@@ -51,6 +100,21 @@ export default function AutomationScreen() {
     if (!q || questions.length >= 6) return;
     setQuestions((prev) => [...prev, q]);
     setNewQuestion('');
+  };
+
+  const onSave = () => {
+    setWelcomeFlow.mutate(
+      {
+        mode: MODE_TO_REAL[mode],
+        message: mode === 'off' ? null : message,
+        questions: showQuestions ? questions.map((prompt) => ({ prompt, isRequired: false })) : [],
+        fileIds: [],
+      },
+      {
+        onSuccess: () => Alert.alert('Saved', 'Your automation settings have been saved.'),
+        onError: (err) => Alert.alert('Save failed', getErrorMessage(err)),
+      },
+    );
   };
 
   return (
@@ -110,7 +174,7 @@ export default function AutomationScreen() {
               style={{ textAlignVertical: 'top' }}
             />
             <View className="flex-row flex-wrap gap-2">
-              {MERGE_FIELDS.map((field) => (
+              {mergeFieldTokens.map((field) => (
                 <Pressable
                   key={field}
                   onPress={() => insertField(field)}
@@ -162,9 +226,12 @@ export default function AutomationScreen() {
       ) : null}
 
       <Pressable
-        onPress={() => Alert.alert('Saved', 'Your automation settings have been saved.')}
-        className="items-center rounded-2xl bg-primary py-4 active:opacity-80">
-        <Text className="font-bold text-white">Save automation</Text>
+        onPress={onSave}
+        disabled={setWelcomeFlow.isPending}
+        className={`items-center rounded-2xl bg-primary py-4 ${setWelcomeFlow.isPending ? 'opacity-50' : 'active:opacity-80'}`}>
+        <Text className="font-bold text-white">
+          {setWelcomeFlow.isPending ? 'Saving…' : 'Save automation'}
+        </Text>
       </Pressable>
     </ScrollView>
   );
