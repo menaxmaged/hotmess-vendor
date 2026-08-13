@@ -1,12 +1,24 @@
+import { useActionSheet } from '@expo/react-native-action-sheet';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Card, DISPLAY, SectionLabel } from '@/components/brand';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
-import { useMergeFields, useSetWelcomeFlow, useWelcomeFlow } from '@/Modules/automation/hooks';
-import type { WelcomeFlow, WelcomeFlowMode } from '@/Modules/automation/types';
+import {
+    useAutoAssignRules,
+    useCreateAutoAssignRule,
+    useDeleteAutoAssignRule,
+    useMergeFields,
+    useSetWelcomeFlow,
+    useUpdateAutoAssignRule,
+    useWelcomeFlow,
+} from '@/Modules/automation/hooks';
+import type { AutoAssignRule, LeadSource, WelcomeFlow, WelcomeFlowMode } from '@/Modules/automation/types';
+import { useCategoryOptions } from '@/Modules/profile/hooks';
+import type { CoverageCityOption, CoverageOccasionOption } from '@/Modules/profile/types';
 import { useSubscription } from '@/Modules/subscription/hooks';
+import { useTeamOverview } from '@/Modules/team/hooks';
 import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
 
@@ -233,6 +245,310 @@ function AutomationForm({
           {setWelcomeFlow.isPending ? 'Saving…' : 'Save automation'}
         </Text>
       </Pressable>
+
+      <AutoAssignRulesSection isPremium={isPremium} />
     </ScrollView>
+  );
+}
+
+const LEAD_SOURCE_OPTIONS: { key: LeadSource; label: string }[] = [
+  { key: 'browse', label: 'Browse' },
+  { key: 'explore', label: 'Explore' },
+  { key: 'ad', label: 'Ad' },
+  { key: 'task', label: 'Task' },
+  { key: 'direct', label: 'Direct' },
+];
+
+function describeCriteria(
+  rule: AutoAssignRule,
+  cities: CoverageCityOption[],
+  occasions: CoverageOccasionOption[],
+): string {
+  const parts: string[] = [];
+  if (rule.criteria.leadSource?.length) {
+    parts.push(rule.criteria.leadSource.map((s) => LEAD_SOURCE_OPTIONS.find((o) => o.key === s)?.label ?? s).join('/'));
+  }
+  if (rule.criteria.cityIds?.length) {
+    parts.push(rule.criteria.cityIds.map((id) => cities.find((c) => c.id === id)?.nameEn ?? id).join(', '));
+  }
+  if (rule.criteria.occasionTypeIds?.length) {
+    parts.push(rule.criteria.occasionTypeIds.map((id) => occasions.find((o) => o.id === id)?.nameEn ?? id).join(', '));
+  }
+  return parts.length > 0 ? parts.join(' · ') : 'Matches every lead';
+}
+
+function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
+  const { colors } = useColorScheme();
+  const { showActionSheetWithOptions } = useActionSheet();
+  const { data: rules, isLoading: rulesLoading } = useAutoAssignRules();
+  const { data: teamOverview } = useTeamOverview();
+  const { data: categoryOptions } = useCategoryOptions();
+  const createRule = useCreateAutoAssignRule();
+  const updateRule = useUpdateAutoAssignRule();
+  const deleteRule = useDeleteAutoAssignRule();
+
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState('');
+  const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
+  const [cityIds, setCityIds] = useState<string[]>([]);
+  const [occasionIds, setOccasionIds] = useState<string[]>([]);
+  const [assignToMemberId, setAssignToMemberId] = useState<string | null>(null);
+
+  const activeMembers = (teamOverview?.members ?? []).filter((m) => m.status === 'active');
+  const cities = categoryOptions?.cities ?? [];
+  const occasions = categoryOptions?.occasions ?? [];
+  const sortedRules = [...(rules ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  const toggle = <T,>(list: T[], value: T, setList: (v: T[]) => void) => {
+    setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  };
+
+  const resetForm = () => {
+    setName('');
+    setLeadSources([]);
+    setCityIds([]);
+    setOccasionIds([]);
+    setAssignToMemberId(null);
+    setShowForm(false);
+  };
+
+  const openNewRuleForm = () => {
+    if (!isPremium) {
+      Alert.alert('Premium feature', 'Upgrade to Premium to create auto-assign rules.');
+      return;
+    }
+    setShowForm(true);
+  };
+
+  const openAssigneePicker = () => {
+    const options = [...activeMembers.map((m) => m.name), 'Unassigned', 'Cancel'];
+    showActionSheetWithOptions(
+      { options, cancelButtonIndex: options.length - 1, title: 'Assign to' },
+      (index) => {
+        if (index === undefined || index === options.length - 1) return;
+        if (index === activeMembers.length) {
+          setAssignToMemberId(null);
+          return;
+        }
+        setAssignToMemberId(activeMembers[index]!.id);
+      },
+    );
+  };
+
+  const onCreate = () => {
+    if (!name.trim()) return;
+    createRule.mutate(
+      {
+        name: name.trim(),
+        criteria: {
+          leadSource: leadSources.length ? leadSources : undefined,
+          cityIds: cityIds.length ? cityIds : undefined,
+          occasionTypeIds: occasionIds.length ? occasionIds : undefined,
+        },
+        assignToMemberId,
+        displayOrder: sortedRules.length,
+        isActive: true,
+      },
+      {
+        onSuccess: resetForm,
+        onError: (err) => Alert.alert('Save failed', getErrorMessage(err)),
+      },
+    );
+  };
+
+  const moveRule = (index: number, direction: -1 | 1) => {
+    const swapIndex = index + direction;
+    if (swapIndex < 0 || swapIndex >= sortedRules.length) return;
+    const rule = sortedRules[index]!;
+    const other = sortedRules[swapIndex]!;
+    updateRule.mutate({ ruleId: rule.id, displayOrder: other.displayOrder });
+    updateRule.mutate({ ruleId: other.id, displayOrder: rule.displayOrder });
+  };
+
+  const toggleActive = (rule: AutoAssignRule) => {
+    updateRule.mutate({ ruleId: rule.id, isActive: !rule.isActive });
+  };
+
+  const onDelete = (rule: AutoAssignRule) => {
+    Alert.alert('Delete rule', `Delete "${rule.name}"? This can't be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteRule.mutate(rule.id) },
+    ]);
+  };
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-center justify-between">
+        <SectionLabel>Lead auto-assign</SectionLabel>
+        <Pressable onPress={openNewRuleForm}>
+          <Text variant="caption1" className={isPremium ? 'font-bold text-primary' : 'font-bold text-muted-foreground'}>
+            {isPremium ? 'New rule' : 'New rule 🔒'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {rulesLoading ? (
+        <ActivityIndicator />
+      ) : sortedRules.length === 0 && !showForm ? (
+        <Text variant="footnote" color="tertiary">
+          No rules yet — new leads route to whoever picks them up.
+        </Text>
+      ) : (
+        <View className="gap-2">
+          {sortedRules.map((rule, index) => {
+            const assignee = activeMembers.find((m) => m.id === rule.assignToMemberId);
+            return (
+              <View key={rule.id} className="gap-2 rounded-xl border border-border bg-card p-3.5">
+                <View className="flex-row items-start justify-between gap-2">
+                  <View className="flex-1">
+                    <Text variant="footnote" className="font-bold">
+                      {rule.name}
+                    </Text>
+                    <Text variant="caption1" color="tertiary">
+                      {describeCriteria(rule, cities, occasions)}
+                    </Text>
+                    <Text variant="caption2" color="tertiary" className="mt-0.5">
+                      {`→ ${assignee?.name ?? 'Unassigned'} · fired ${rule.firedCount}× this month`}
+                    </Text>
+                  </View>
+                  <View className="items-end gap-1">
+                    <Pressable onPress={() => toggleActive(rule)}>
+                      <Text
+                        variant="caption2"
+                        className={`font-bold ${rule.isActive ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                        {rule.isActive ? 'Active' : 'Paused'}
+                      </Text>
+                    </Pressable>
+                    <View className="flex-row items-center gap-1">
+                      <Pressable onPress={() => moveRule(index, -1)} disabled={index === 0} className="p-1">
+                        <Icon name="chevron.up" size={13} color={index === 0 ? colors.grey : colors.foreground} />
+                      </Pressable>
+                      <Pressable onPress={() => moveRule(index, 1)} disabled={index === sortedRules.length - 1} className="p-1">
+                        <Icon
+                          name="chevron.down"
+                          size={13}
+                          color={index === sortedRules.length - 1 ? colors.grey : colors.foreground}
+                        />
+                      </Pressable>
+                      <Pressable onPress={() => onDelete(rule)} className="p-1">
+                        <Icon name="trash.fill" size={13} color={colors.grey} />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {showForm ? (
+        <Card className="gap-3">
+          <Text variant="caption1" color="tertiary" className="font-bold">
+            NEW RULE
+          </Text>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Rule name, e.g. Cairo weddings to Sara"
+            placeholderTextColor={colors.grey}
+            className="rounded-lg border border-border px-3 py-2.5 text-foreground"
+          />
+
+          <View className="gap-1.5">
+            <Text variant="caption2" color="tertiary">
+              LEAD SOURCE
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {LEAD_SOURCE_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => toggle(leadSources, opt.key, setLeadSources)}
+                  className={`rounded-full px-3 py-1.5 ${leadSources.includes(opt.key) ? 'bg-foreground' : 'border border-border'}`}>
+                  <Text
+                    variant="caption1"
+                    className={`font-bold ${leadSources.includes(opt.key) ? 'text-background' : 'text-foreground'}`}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {cities.length > 0 ? (
+            <View className="gap-1.5">
+              <Text variant="caption2" color="tertiary">
+                CITY
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {cities.map((city) => (
+                  <Pressable
+                    key={city.id}
+                    onPress={() => toggle(cityIds, city.id, setCityIds)}
+                    className={`rounded-full px-3 py-1.5 ${cityIds.includes(city.id) ? 'bg-foreground' : 'border border-border'}`}>
+                    <Text
+                      variant="caption1"
+                      className={`font-bold ${cityIds.includes(city.id) ? 'text-background' : 'text-foreground'}`}>
+                      {city.nameEn}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {occasions.length > 0 ? (
+            <View className="gap-1.5">
+              <Text variant="caption2" color="tertiary">
+                OCCASION
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {occasions.map((occasion) => (
+                  <Pressable
+                    key={occasion.id}
+                    onPress={() => toggle(occasionIds, occasion.id, setOccasionIds)}
+                    className={`rounded-full px-3 py-1.5 ${occasionIds.includes(occasion.id) ? 'bg-foreground' : 'border border-border'}`}>
+                    <Text
+                      variant="caption1"
+                      className={`font-bold ${occasionIds.includes(occasion.id) ? 'text-background' : 'text-foreground'}`}>
+                      {occasion.nameEn}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          <View className="gap-1.5">
+            <Text variant="caption2" color="tertiary">
+              ASSIGN TO
+            </Text>
+            <Pressable
+              onPress={openAssigneePicker}
+              className="rounded-lg border border-border px-3 py-2.5">
+              <Text variant="footnote">
+                {activeMembers.find((m) => m.id === assignToMemberId)?.name ?? 'Unassigned'}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View className="flex-row gap-2">
+            <Pressable
+              onPress={onCreate}
+              disabled={!name.trim() || createRule.isPending}
+              className={`flex-1 items-center rounded-lg bg-primary py-2.5 ${!name.trim() || createRule.isPending ? 'opacity-50' : 'active:opacity-80'}`}>
+              <Text variant="caption1" className="font-bold text-white">
+                {createRule.isPending ? 'Adding…' : 'Add rule'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={resetForm} className="items-center rounded-lg border border-border px-4 py-2.5">
+              <Text variant="caption1" className="font-bold">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        </Card>
+      ) : null}
+    </View>
   );
 }
