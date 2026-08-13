@@ -8,16 +8,24 @@ import { Text } from '@/components/nativewindui/Text';
 import { Toggle } from '@/components/nativewindui/Toggle';
 import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { useCreateRole, useDeleteRole, useTeamOverview, useUpdateRole } from '@/Modules/team/hooks';
-import { DEFAULT_PERMISSIONS } from '@/Modules/team/types';
-import type { CalendarAccess, InboxAccess, Role, RolePermissions } from '@/Modules/team/types';
+import { useCreateRole, useDeleteRole, useRoles, useUpdateRole } from '@/Modules/roles/hooks';
+import { DEFAULT_PERMISSIONS } from '@/Modules/roles/types';
+import type {
+    CalendarAccess,
+    FinanceAccess,
+    GrowthPermission,
+    InboxAccess,
+    Role,
+    RolePermissions,
+    StudioPermission,
+} from '@/Modules/roles/types';
 
 export default function RoleEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
 
-  const { data, isLoading } = useTeamOverview();
-  const existingRole = !isNew ? data?.roles.find((r) => r.id === id) : undefined;
+  const { data: roles, isLoading } = useRoles();
+  const existingRole = !isNew ? roles?.find((r) => r.id === id) : undefined;
 
   if (!isNew && isLoading) {
     return (
@@ -56,7 +64,18 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
     setPermissions((prev) => ({ ...prev, [key]: value }));
   };
 
+  const toggleListPerm = <T extends string>(key: 'studio' | 'growth', value: T) => {
+    setPermissions((prev) => {
+      const list = prev[key] as T[];
+      return {
+        ...prev,
+        [key]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value],
+      };
+    });
+  };
+
   const isSaving = createRole.isPending || updateRole.isPending;
+  const isBuiltIn = initialRole?.isBuiltIn ?? false;
 
   const onSave = async () => {
     setError(null);
@@ -102,17 +121,25 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
         <TextInput
           value={name}
           onChangeText={setName}
+          editable={!isBuiltIn}
           placeholder="e.g. Sales"
           className="rounded-xl border border-border bg-card px-4 py-3 text-foreground"
         />
+        {isBuiltIn ? (
+          <Text variant="caption2" color="tertiary">
+            Built-in roles can&apos;t be renamed or have their permissions edited.
+          </Text>
+        ) : null}
       </View>
 
       <PermissionGroup title="Inbox">
         <SegmentedChoice<InboxAccess>
           value={permissions.inbox}
+          disabled={isBuiltIn}
           options={[
-            { key: 'all_chats', label: 'All chats' },
-            { key: 'assigned_only', label: 'Assigned chats only' },
+            { key: 'none', label: 'No access' },
+            { key: 'assigned', label: 'Assigned chats' },
+            { key: 'all', label: 'All chats' },
           ]}
           onChange={(v) => setPerm('inbox', v)}
         />
@@ -121,48 +148,43 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
       <PermissionGroup title="Calendar">
         <SegmentedChoice<CalendarAccess>
           value={permissions.calendar}
+          disabled={isBuiltIn}
           options={[
-            { key: 'full_access', label: 'Full access' },
-            { key: 'view_only', label: 'View only' },
+            { key: 'none', label: 'No access' },
+            { key: 'view', label: 'View only' },
+            { key: 'full', label: 'Full access' },
           ]}
           onChange={(v) => setPerm('calendar', v)}
         />
       </PermissionGroup>
 
       <PermissionGroup title="Finance">
-        <ToggleRow
-          label="Quotes create/edit"
-          value={permissions.financeQuotesCreateEdit}
-          onChange={(v) => setPerm('financeQuotesCreateEdit', v)}
-        />
-        <ToggleRow
-          label="Payments view"
-          value={permissions.financePaymentsView}
-          onChange={(v) => setPerm('financePaymentsView', v)}
-        />
-        <ToggleRow
-          label="Payments edit"
-          value={permissions.financePaymentsEdit}
-          onChange={(v) => setPerm('financePaymentsEdit', v)}
-        />
-        <ToggleRow
-          label="Full finance access"
-          value={permissions.financeFullAccess}
-          onChange={(v) => setPerm('financeFullAccess', v)}
-          last
+        <SegmentedChoice<FinanceAccess>
+          value={permissions.finance}
+          disabled={isBuiltIn}
+          options={[
+            { key: 'none', label: 'No access' },
+            { key: 'quotes', label: 'Quotes only' },
+            { key: 'payments_view', label: 'Payments (view)' },
+            { key: 'payments_edit', label: 'Payments (edit)' },
+            { key: 'full', label: 'Full access' },
+          ]}
+          onChange={(v) => setPerm('finance', v)}
         />
       </PermissionGroup>
 
       <PermissionGroup title="Studio">
         <ToggleRow
           label="Profile edit"
-          value={permissions.studioProfileEdit}
-          onChange={(v) => setPerm('studioProfileEdit', v)}
+          value={permissions.studio.includes('profile_edit')}
+          disabled={isBuiltIn}
+          onChange={() => toggleListPerm<StudioPermission>('studio', 'profile_edit')}
         />
         <ToggleRow
           label="Automation edit"
-          value={permissions.studioAutomationEdit}
-          onChange={(v) => setPerm('studioAutomationEdit', v)}
+          value={permissions.studio.includes('automation_edit')}
+          disabled={isBuiltIn}
+          onChange={() => toggleListPerm<StudioPermission>('studio', 'automation_edit')}
           last
         />
       </PermissionGroup>
@@ -170,13 +192,15 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
       <PermissionGroup title="Growth">
         <ToggleRow
           label="Ads access"
-          value={permissions.growthAdsAccess}
-          onChange={(v) => setPerm('growthAdsAccess', v)}
+          value={permissions.growth.includes('ads')}
+          disabled={isBuiltIn}
+          onChange={() => toggleListPerm<GrowthPermission>('growth', 'ads')}
         />
         <ToggleRow
           label="Analytics access"
-          value={permissions.growthAnalyticsAccess}
-          onChange={(v) => setPerm('growthAnalyticsAccess', v)}
+          value={permissions.growth.includes('analytics')}
+          disabled={isBuiltIn}
+          onChange={() => toggleListPerm<GrowthPermission>('growth', 'analytics')}
           last
         />
       </PermissionGroup>
@@ -184,8 +208,9 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
       <PermissionGroup title="Admin">
         <ToggleRow
           label="Team management"
-          value={permissions.adminTeamManagement}
-          onChange={(v) => setPerm('adminTeamManagement', v)}
+          value={permissions.admin}
+          disabled={isBuiltIn}
+          onChange={(v) => setPerm('admin', v)}
           last
         />
       </PermissionGroup>
@@ -196,11 +221,13 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
         </Text>
       ) : null}
 
-      <Button onPress={onSave} disabled={isSaving}>
-        <Text>{isSaving ? 'Saving…' : 'Save role'}</Text>
-      </Button>
+      {!isBuiltIn ? (
+        <Button onPress={onSave} disabled={isSaving}>
+          <Text>{isSaving ? 'Saving…' : 'Save role'}</Text>
+        </Button>
+      ) : null}
 
-      {!isNew && !initialRole?.isBuiltIn ? (
+      {!isNew && !isBuiltIn ? (
         <Pressable onPress={onDelete} className="items-center py-2">
           <Text variant="footnote" className="text-destructive">
             Delete role
@@ -226,18 +253,20 @@ function ToggleRow({
   label,
   value,
   onChange,
+  disabled,
   last,
 }: {
   label: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
   last?: boolean;
 }) {
   return (
     <View
       className={`flex-row items-center justify-between p-4 ${last ? '' : 'border-b border-border'}`}>
       <Text variant="subhead">{label}</Text>
-      <Toggle value={value} onValueChange={onChange} />
+      <Toggle value={value} onValueChange={onChange} disabled={disabled} />
     </View>
   );
 }
@@ -246,10 +275,12 @@ function SegmentedChoice<T extends string>({
   value,
   options,
   onChange,
+  disabled,
 }: {
   value: T;
   options: { key: T; label: string }[];
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   const { colors } = useColorScheme();
   return (
@@ -259,10 +290,11 @@ function SegmentedChoice<T extends string>({
         return (
           <Pressable
             key={opt.key}
-            onPress={() => onChange(opt.key)}
+            onPress={() => !disabled && onChange(opt.key)}
+            disabled={disabled}
             className={`rounded-full border px-3 py-1.5 ${
               selected ? 'border-primary bg-primary' : 'border-border'
-            }`}>
+            } ${disabled ? 'opacity-50' : ''}`}>
             <Text
               variant="caption1"
               style={selected ? undefined : { color: colors.foreground }}

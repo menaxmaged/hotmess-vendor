@@ -8,49 +8,55 @@ import { Button } from '@/components/nativewindui/Button';
 import { Text } from '@/components/nativewindui/Text';
 import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { useInviteMember, useTeamOverview } from '@/Modules/team/hooks';
+import { useRoles } from '@/Modules/roles/hooks';
+import { useInviteMember } from '@/Modules/team/hooks';
 import type { InviteDelivery } from '@/Modules/team/types';
 
 const DELIVERY_OPTIONS: { key: InviteDelivery; label: string }[] = [
-  { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'email', label: 'Email' },
-  { key: 'both', label: 'Both' },
+  { key: 'whatsapp', label: 'WhatsApp' },
 ];
 
 export default function InviteMemberScreen() {
   const router = useRouter();
   const { colors } = useColorScheme();
   const { showActionSheetWithOptions } = useActionSheet();
-  const { data } = useTeamOverview();
+  const { data: roles } = useRoles();
   const inviteMember = useInviteMember();
 
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<InviteDelivery>('email');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const roles = data?.roles ?? [];
-  const selectedRole = roles.find((r) => r.id === roleId);
+  const selectedRole = (roles ?? []).find((r) => r.id === roleId);
 
   const openRolePicker = () => {
-    const options = [...roles.map((r) => r.name), 'Cancel'];
+    const list = roles ?? [];
+    const options = [...list.map((r) => r.name), 'Cancel'];
     showActionSheetWithOptions(
       { options, cancelButtonIndex: options.length - 1, title: 'Assign role' },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
-        setRoleId(roles[index]!.id);
+        setRoleId(list[index]!.id);
       },
     );
   };
 
   const onSubmit = async () => {
     setError(null);
-    if (!roleId) {
-      setError('Choose a role for this member.');
+    if (delivery === 'whatsapp' && !phone.trim()) {
+      setError('Enter a WhatsApp number.');
       return;
     }
     try {
-      await inviteMember.mutateAsync({ email: email.trim(), roleId, delivery });
+      await inviteMember.mutateAsync({
+        email: email.trim(),
+        roleId,
+        delivery,
+        phone: delivery === 'whatsapp' ? phone.trim() : undefined,
+      });
       router.back();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -112,13 +118,39 @@ export default function InviteMemberScreen() {
         </View>
       </View>
 
+      {delivery === 'whatsapp' ? (
+        <View className="gap-1.5">
+          <Text variant="caption1" color="tertiary">
+            WHATSAPP NUMBER
+          </Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+20 10 1234 5678"
+            placeholderTextColor={colors.grey}
+            keyboardType="phone-pad"
+            className="rounded-xl border border-border bg-card px-4 py-3 text-foreground"
+          />
+          <Text variant="caption2" color="tertiary">
+            WhatsApp delivery isn&apos;t live yet on the backend — the invite is still created,
+            just not sent this way.
+          </Text>
+        </View>
+      ) : null}
+
       {error ? (
         <Text variant="footnote" className="text-destructive">
           {error}
         </Text>
       ) : null}
 
-      <Button onPress={onSubmit} disabled={!email.trim() || inviteMember.isPending}>
+      <Button
+        onPress={onSubmit}
+        disabled={
+          !email.trim() ||
+          (delivery === 'whatsapp' && !phone.trim()) ||
+          inviteMember.isPending
+        }>
         <Text>{inviteMember.isPending ? 'Sending invite…' : 'Send invite'}</Text>
       </Button>
     </KeyboardAwareScrollView>

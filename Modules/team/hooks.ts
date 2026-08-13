@@ -1,11 +1,11 @@
 /**
- * Team & Roles Feature - Hooks
+ * Team Feature - Hooks
  */
 
 import { getErrorMessage } from "@/lib/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { teamApi } from "./api";
-import type { CreateRoleInput, InviteMemberInput, UpdateRoleInput } from "./types";
+import type { AcceptInviteInput, InviteMemberInput } from "./types";
 
 export const teamKeys = {
   all: ["team"] as const,
@@ -19,81 +19,52 @@ export const useTeamOverview = () => {
   });
 };
 
-export const useInviteMember = () => {
+const useInvalidateTeam = () => {
   const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
+};
+
+export const useInviteMember = () => {
+  const invalidate = useInvalidateTeam();
   return useMutation({
     mutationFn: (input: InviteMemberInput) => teamApi.inviteMember(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
-    },
-    onError: (error) => {
-      console.error("Invite member error:", getErrorMessage(error));
-    },
+    onSuccess: invalidate,
+    onError: (error) => console.error("Invite member error:", getErrorMessage(error)),
+  });
+};
+
+// PUBLIC flow — the invitee has no account/session yet. See app/(auth)/accept-invite.tsx.
+export const useAcceptInvite = () => {
+  return useMutation({
+    mutationFn: (input: AcceptInviteInput) => teamApi.acceptInvite(input),
+    onError: (error) => console.error("Accept invite error:", getErrorMessage(error)),
+  });
+};
+
+export const useRevokeInvite = () => {
+  const invalidate = useInvalidateTeam();
+  return useMutation({
+    mutationFn: (inviteId: string) => teamApi.revokeInvite(inviteId),
+    onSuccess: invalidate,
+    onError: (error) => console.error("Revoke invite error:", getErrorMessage(error)),
   });
 };
 
 export const useRemoveMember = () => {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTeam();
   return useMutation({
     mutationFn: (memberId: string) => teamApi.removeMember(memberId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
-    },
-    onError: (error) => {
-      console.error("Remove member error:", getErrorMessage(error));
-    },
+    onSuccess: invalidate,
+    onError: (error) => console.error("Remove member error:", getErrorMessage(error)),
   });
 };
 
 export const useUpdateMemberRole = () => {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTeam();
   return useMutation({
-    mutationFn: ({ memberId, roleId }: { memberId: string; roleId: string }) =>
+    mutationFn: ({ memberId, roleId }: { memberId: string; roleId: string | null }) =>
       teamApi.updateMemberRole(memberId, roleId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
-    },
-    onError: (error) => {
-      console.error("Update member role error:", getErrorMessage(error));
-    },
-  });
-};
-
-export const useCreateRole = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CreateRoleInput) => teamApi.createRole(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
-    },
-    onError: (error) => {
-      console.error("Create role error:", getErrorMessage(error));
-    },
-  });
-};
-
-export const useUpdateRole = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: UpdateRoleInput) => teamApi.updateRole(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
-    },
-    onError: (error) => {
-      console.error("Update role error:", getErrorMessage(error));
-    },
-  });
-};
-
-export const useDeleteRole = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (roleId: string) => teamApi.deleteRole(roleId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamKeys.overview() });
-    },
-    onError: (error) => {
-      console.error("Delete role error:", getErrorMessage(error));
-    },
+    onSuccess: invalidate,
+    onError: (error) => console.error("Update member role error:", getErrorMessage(error)),
   });
 };

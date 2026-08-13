@@ -9,15 +9,19 @@ import { ProgressIndicator } from '@/components/nativewindui/ProgressIndicator';
 import { Text } from '@/components/nativewindui/Text';
 import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { useRemoveMember, useTeamOverview, useUpdateMemberRole } from '@/Modules/team/hooks';
-import type { Role, TeamMember } from '@/Modules/team/types';
+import { useRoles } from '@/Modules/roles/hooks';
+import type { Role } from '@/Modules/roles/types';
+import { useRemoveMember, useRevokeInvite, useTeamOverview, useUpdateMemberRole } from '@/Modules/team/hooks';
+import type { TeamMember } from '@/Modules/team/types';
 
 export default function TeamOverviewScreen() {
   const router = useRouter();
   const { colors } = useColorScheme();
   const { showActionSheetWithOptions } = useActionSheet();
   const { data, isLoading, isError, error, refetch } = useTeamOverview();
+  const { data: roles } = useRoles();
   const removeMember = useRemoveMember();
+  const revokeInvite = useRevokeInvite();
   const updateMemberRole = useUpdateMemberRole();
 
   if (isLoading) {
@@ -41,23 +45,25 @@ export default function TeamOverviewScreen() {
     );
   }
 
-  const { members, roles, seatLimits } = data;
-  const isFree = seatLimits.plan === 'free';
-  const seatsFull = seatLimits.used >= seatLimits.total;
-  const canInvite = !isFree && !seatsFull;
+  const { members, seatLimits } = data;
+  const seatsUsed = seatLimits.seated + seatLimits.liveInvites;
+  const seatsFull = seatLimits.max != null && seatsUsed >= seatLimits.max;
+  const canInvite = !seatsFull;
 
   const openMemberSheet = (member: TeamMember) => {
     if (member.status === 'pending') {
       showActionSheetWithOptions(
         { options: ['Cancel invite', 'Dismiss'], cancelButtonIndex: 1, destructiveButtonIndex: 0 },
         (index) => {
-          if (index === 0) removeMember.mutate(member.id);
+          if (index === 0) revokeInvite.mutate(member.id);
         },
       );
       return;
     }
 
-    const assignableRoles = roles.filter((r) => r.id !== member.roleId);
+    if (member.isOwner) return;
+
+    const assignableRoles = (roles ?? []).filter((r) => r.id !== member.roleId);
     const options = [...assignableRoles.map((r) => `Change role to ${r.name}`), 'Remove from team', 'Dismiss'];
     showActionSheetWithOptions(
       { options, cancelButtonIndex: options.length - 1, destructiveButtonIndex: options.length - 2 },
@@ -93,24 +99,25 @@ export default function TeamOverviewScreen() {
       <View className="gap-2 rounded-xl border border-border bg-card p-4">
         <View className="flex-row items-center justify-between">
           <Text variant="subhead" className="font-semibold">
-            {`${seatLimits.used} of ${seatLimits.total} seats used`}
-          </Text>
-          <Text variant="caption1" color="tertiary" className="capitalize">
-            {seatLimits.plan}
+            {seatLimits.max != null
+              ? `${seatsUsed} of ${seatLimits.max} seats used`
+              : `${seatsUsed} seats used`}
           </Text>
         </View>
-        <ProgressIndicator value={seatLimits.used} max={seatLimits.total} />
+        {seatLimits.max != null ? (
+          <ProgressIndicator value={seatsUsed} max={seatLimits.max} />
+        ) : null}
       </View>
 
-      {isFree ? (
+      {seatsFull ? (
         <Pressable
           onPress={() => router.push('/(app)/more/premium')}
           className="gap-1 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
           <Text variant="footnote" className="font-medium text-amber-800 dark:text-amber-300">
-            Upgrade to Premium
+            No seats left
           </Text>
           <Text variant="caption1" className="text-amber-700 dark:text-amber-400">
-            Invite up to 10 team members and create unlimited custom roles.
+            Upgrade to invite more team members.
           </Text>
         </Pressable>
       ) : null}
@@ -127,22 +134,13 @@ export default function TeamOverviewScreen() {
               className={`flex-row items-center gap-3 p-4 ${
                 index < members.length - 1 ? 'border-b border-border' : ''
               }`}>
-              <View>
-                <InitialsAvatar name={member.name} size={36} />
-                {member.status === 'active' ? (
-                  <View
-                    className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card ${
-                      member.online ? 'bg-green-500' : 'bg-neutral-400'
-                    }`}
-                  />
-                ) : null}
-              </View>
+              <InitialsAvatar name={member.name} size={36} />
               <View className="flex-1">
                 <Text variant="subhead" className="font-medium" numberOfLines={1}>
                   {member.name}
                 </Text>
                 <Text variant="caption1" color="tertiary" numberOfLines={1}>
-                  {member.roleName}
+                  {member.roleName ?? 'No role'}
                 </Text>
               </View>
               {member.status === 'pending' ? (
@@ -162,22 +160,18 @@ export default function TeamOverviewScreen() {
           <Text variant="caption2" color="tertiary">
             ROLES
           </Text>
-          <Pressable
-            onPress={() => router.push('/(app)/more/team/role/new')}
-            disabled={!seatLimits.customRolesAllowed}>
-            <Text
-              variant="caption1"
-              className={seatLimits.customRolesAllowed ? 'text-primary' : 'text-muted-foreground'}>
+          <Pressable onPress={() => router.push('/(app)/more/team/role/new')}>
+            <Text variant="caption1" className="text-primary">
               New role
             </Text>
           </Pressable>
         </View>
         <View className="overflow-hidden rounded-xl border border-border bg-card">
-          {roles.map((role, index) => (
+          {(roles ?? []).map((role, index) => (
             <RoleRow
               key={role.id}
               role={role}
-              last={index === roles.length - 1}
+              last={index === (roles ?? []).length - 1}
               onPress={() => router.push(`/(app)/more/team/role/${role.id}`)}
             />
           ))}
