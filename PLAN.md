@@ -39,7 +39,17 @@ Notifications module, calendar CRUD UI, forgot-password screens, vendor self-reg
 
 Planned 2026-08-13 (verified against the live spec — backend grew from 85 to 146 endpoints since this pass): `plans/day-01-inbox-upgrade.md` through `plans/day-08-vendor-signup.md`, dependency-ordered — inbox → profile → team+roles → finance → subscription → automation → instagram → vendor signup. Onboarding checklist, quotes, and saved-replies are also live now (`/vendor/onboarding-checklist`, `/vendor/quotes`, `/vendor/saved-replies`) but have no existing app module or screen — net-new features, not covered by these day-plans, flag separately if wanted.
 
-**Day 1 (inbox) and Day 8 (vendor signup) — done 2026-08-13**, see those files for what shipped and what didn't (both `tsc`/lint clean, neither live-tested — no running Expo session or test/session account this pass). Days 2–7 (profile, team+roles, finance, subscription, automation, instagram) still queued, unchanged.
+**All 8 days done, 2026-08-13** (day-01 through day-08 plan files, each with a "what was actually built" section — read those before touching a module again). All `tsc`/lint clean; none live-tested, no running Expo session or test/session account this pass, across every day.
+
+Highlights and open flags, newest-relevant first:
+- **Day 7 (instagram)**: split into its own `Modules/instagram/`, real OAuth code-exchange flow built (`expo-web-browser` + `expo-linking`, no new deps) — but blocked on a missing Meta/Instagram App ID (`EXPO_PUBLIC_INSTAGRAM_CLIENT_ID` doesn't exist) and the backend's own Meta app registration also being outstanding (`configured: false`). Flagged in the UI, not faked. `GET /vendors/{id}/instagram-posts` could supply real portfolio-grid images later — not wired, out of this day's scope.
+- **Day 6 (automation)**: `Modules/automation/` wired into `automation.tsx`'s Save button for real (was a bare `Alert`); auto-assign-rules CRUD is API-only, no UI (no rules screen exists). "Welcome + files" modes are still selectable with no file-attach UI anywhere — pre-existing gap, now visible since save is real.
+- **Day 5 (subscription)**: `premium.tsx` moved off `Modules/home`'s mock onto real `Modules/subscription`. Upgrade opens a real checkout (webhook-confirmed, not instant). Invoice PDF download is real on web, flagged-unwired on native (no expo-file-system/expo-sharing installed). "Change payment method" stays a flagged no-op — no payment-provider SDK in the app.
+- **Day 3 (team+roles)**: split `Modules/roles` out of `Modules/team`. `acceptInvite` is wired to `app/(auth)/accept-invite.tsx` (built as a follow-up the same day) — public pre-auth screen, reuses `useAuth().login()` for sign-in.
+- **Day 4 (finance)**: rebuilt around a flat per-transaction ledger — the real API has no per-bride running-total concept at all. Report export/poll wired API-only, no UI.
+- **Day 2 (profile)**: `updateCore`/`uploadCoverImage` still on mock — no cover-image upload endpoint exists in the live spec, and `businessName` isn't editable server-side at all.
+
+Nothing committed yet across any of these 8 days — working-tree edits only.
 
 Still not planned:
 - Notifications module (real endpoints exist, zero client code today — needs `expo-notifications` dep + device-token registration + new screens).
