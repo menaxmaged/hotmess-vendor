@@ -3,34 +3,57 @@ import { Modal, Pressable, RefreshControl, ScrollView, TextInput, View } from 'r
 
 import { BackHeader, Card, DISPLAY, ErrorState, LoadingState, SectionLabel, SegmentedRange } from '@/components/brand';
 import { Text } from '@/components/nativewindui/Text';
-import { useAddPayment, useFinanceOverview } from '@/Modules/finance/hooks';
-import type { BridePayment, FinanceRange, FinanceSummary, PaymentStatus, PaymentType } from '@/Modules/finance/types';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatDate } from '@/lib/format';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useChats } from '@/Modules/inbox/hooks';
+import { useAddPayment, useFinanceSummary, usePayments } from '@/Modules/finance/hooks';
+import type { FinanceSummary, LedgerPayment, PaymentKind } from '@/Modules/finance/types';
 
-const RANGES: { key: FinanceRange; label: string }[] = [
+type DateRangeKey = 'month' | 'quarter' | 'ytd' | 'all';
+
+const RANGES: { key: DateRangeKey; label: string }[] = [
   { key: 'month', label: 'Month' },
   { key: 'quarter', label: 'Quarter' },
   { key: 'ytd', label: 'YTD' },
   { key: 'all', label: 'All time' },
 ];
 
-type SummaryKey = keyof FinanceSummary;
+function rangeToDates(range: DateRangeKey): { from?: string; to?: string } {
+  if (range === 'all') return {};
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  let from: Date;
+  if (range === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (range === 'quarter') {
+    from = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  } else {
+    from = new Date(now.getFullYear(), 0, 1);
+  }
+  return { from: from.toISOString().slice(0, 10), to };
+}
+
+type SummaryKey = keyof Omit<FinanceSummary, 'currencyCode' | 'paymentsCount'>;
 
 const SUMMARY_META: { key: SummaryKey; label: string }[] = [
-  { key: 'received', label: 'Received' },
-  { key: 'deposits', label: 'Deposits' },
-  { key: 'remaining', label: 'Remaining' },
-  { key: 'quoted', label: 'Quoted' },
+  { key: 'totalReceived', label: 'Total received' },
+  { key: 'receivedThisMonth', label: 'This month' },
+  { key: 'outstanding', label: 'Outstanding' },
+  { key: 'openQuotes', label: 'Open quotes' },
 ];
 
-const STATUS_META: Record<PaymentStatus, { label: string; className: string }> = {
-  paid: { label: 'Fully paid', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' },
-  partial: { label: 'Partial', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
-  deposit_pending: { label: 'Deposit pending', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
-  quoted: { label: 'Quoted', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
-  cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground' },
+const KIND_FILTERS: { key: PaymentKind | null; label: string }[] = [
+  { key: null, label: 'All' },
+  { key: 'deposit', label: 'Deposit' },
+  { key: 'instalment', label: 'Instalment' },
+  { key: 'final', label: 'Final' },
+];
+
+const KIND_META: Record<PaymentKind, { label: string; className: string }> = {
+  deposit: { label: 'Deposit', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
+  instalment: { label: 'Instalment', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
+  final: { label: 'Final', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' },
 };
 
 const REPORTS = ['Monthly revenue', 'By bride', 'By package', 'Outstanding payments'];
@@ -39,37 +62,25 @@ function egpK(n: number) {
   return n >= 1000 ? `EGP ${Math.round(n / 1000)}k` : `EGP ${n}`;
 }
 
-function matchesFilter(payment: BridePayment, filter: SummaryKey): boolean {
-  switch (filter) {
-    case 'received':
-      return payment.received > 0;
-    case 'deposits':
-      return payment.status === 'deposit_pending' || payment.status === 'partial';
-    case 'remaining':
-      return payment.status !== 'quoted' && payment.status !== 'cancelled' && payment.total - payment.received > 0;
-    case 'quoted':
-      return payment.status === 'quoted';
-    default:
-      return true;
-  }
-}
-
 export default function FinanceScreen() {
-  const [range, setRange] = useState<FinanceRange>('month');
-  const [filter, setFilter] = useState<SummaryKey | null>(null);
-  const [sheetBride, setSheetBride] = useState<BridePayment | null>(null);
+  const [range, setRange] = useState<DateRangeKey>('month');
+  const [kindFilter, setKindFilter] = useState<PaymentKind | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { data, isLoading, isError, error, refetch, isRefetching } = useFinanceOverview(range);
 
-  const payments = useMemo(() => {
-    if (!data) return [];
-    return filter ? data.payments.filter((p) => matchesFilter(p, filter)) : data.payments;
-  }, [data, filter]);
+  const summaryQuery = useFinanceSummary();
+  const { from, to } = useMemo(() => rangeToDates(range), [range]);
+  const paymentsQuery = usePayments({ from, to, kind: kindFilter ?? undefined, pageSize: 50 });
 
-  const openSheet = (bride: BridePayment | null) => {
-    setSheetBride(bride);
-    setSheetOpen(true);
+  const isLoading = summaryQuery.isLoading || paymentsQuery.isLoading;
+  const isError = summaryQuery.isError || paymentsQuery.isError;
+  const error = summaryQuery.error ?? paymentsQuery.error;
+  const isRefetching = summaryQuery.isRefetching || paymentsQuery.isRefetching;
+  const refetchAll = () => {
+    summaryQuery.refetch();
+    paymentsQuery.refetch();
   };
+
+  const payments = paymentsQuery.data?.payments ?? [];
 
   return (
     <View className="flex-1 bg-background">
@@ -77,31 +88,30 @@ export default function FinanceScreen() {
 
       {isLoading ? (
         <LoadingState />
-      ) : isError || !data ? (
-        <ErrorState message={getErrorMessage(error)} onRetry={refetch} />
+      ) : isError || !summaryQuery.data ? (
+        <ErrorState message={getErrorMessage(error)} onRetry={refetchAll} />
       ) : (
         <ScrollView
           className="flex-1"
           contentContainerClassName="gap-4 px-5 pb-8 pt-3"
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />}>
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetchAll} />}>
           <SegmentedRange value={range} options={RANGES} onChange={setRange} />
+          <Text variant="caption2" color="tertiary">
+            {`${summaryQuery.data.paymentsCount} payments recorded, all time`}
+          </Text>
 
           <View className="flex-row flex-wrap gap-2">
-            {SUMMARY_META.map((item) => {
-              const on = filter === item.key;
-              return (
-                <Pressable
-                  key={item.key}
-                  onPress={() => setFilter(on ? null : item.key)}
-                  className={`min-w-[47%] flex-1 rounded-xl border p-3 ${on ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}>
-                  <Text variant="caption2" className="font-extrabold uppercase tracking-wide text-muted-foreground">
-                    {item.label}
-                  </Text>
-                  <Text className={`${DISPLAY} mt-1 text-xl`}>{egpK(data.summary[item.key])}</Text>
-                </Pressable>
-              );
-            })}
+            {SUMMARY_META.map((item) => (
+              <View key={item.key} className="min-w-[47%] flex-1 rounded-xl border border-border bg-card p-3">
+                <Text variant="caption2" className="font-extrabold uppercase tracking-wide text-muted-foreground">
+                  {item.label}
+                </Text>
+                <Text className={`${DISPLAY} mt-1 text-xl`}>
+                  {item.key === 'openQuotes' ? summaryQuery.data.openQuotes : egpK(summaryQuery.data[item.key])}
+                </Text>
+              </View>
+            ))}
           </View>
 
           <View>
@@ -124,50 +134,60 @@ export default function FinanceScreen() {
 
           <View>
             <View className="mb-2.5 flex-row items-center justify-between">
-              <SectionLabel>
-                Payments{filter ? ` · ${SUMMARY_META.find((s) => s.key === filter)?.label}` : ''}
-              </SectionLabel>
-              <Pressable onPress={() => openSheet(null)} className="rounded-full bg-primary px-3 py-1 active:opacity-80">
+              <SectionLabel>Payments</SectionLabel>
+              <Pressable onPress={() => setSheetOpen(true)} className="rounded-full bg-primary px-3 py-1 active:opacity-80">
                 <Text variant="caption1" className="font-bold text-white">
                   ＋ Add
                 </Text>
               </Pressable>
             </View>
+
+            <View className="mb-2 flex-row flex-wrap gap-2">
+              {KIND_FILTERS.map((f) => {
+                const on = f.key === kindFilter;
+                return (
+                  <Pressable
+                    key={f.label}
+                    onPress={() => setKindFilter(f.key)}
+                    className={`rounded-full px-3 py-1.5 ${on ? 'bg-foreground' : 'border border-border'}`}>
+                    <Text variant="caption1" className={`font-bold ${on ? 'text-background' : 'text-foreground'}`}>
+                      {f.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <View className="gap-2">
-              {payments.map((payment) => (
-                <PaymentRow key={payment.id} payment={payment} onPress={() => openSheet(payment)} />
-              ))}
+              {payments.length === 0 ? (
+                <Text variant="footnote" color="tertiary" className="p-2">
+                  No payments in this range.
+                </Text>
+              ) : (
+                payments.map((payment) => <PaymentRow key={payment.id} payment={payment} />)
+              )}
             </View>
           </View>
         </ScrollView>
       )}
 
-      {data ? (
-        <AddPaymentSheet
-          visible={sheetOpen}
-          brides={data.payments.filter((p) => p.status !== 'cancelled')}
-          initialBride={sheetBride}
-          onClose={() => setSheetOpen(false)}
-        />
-      ) : null}
+      <AddPaymentSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>
   );
 }
 
-function PaymentRow({ payment, onPress }: { payment: BridePayment; onPress: () => void }) {
-  const meta = STATUS_META[payment.status];
-  const progress = payment.total > 0 ? Math.min(payment.received / payment.total, 1) : 0;
+function PaymentRow({ payment }: { payment: LedgerPayment }) {
+  const meta = KIND_META[payment.kind];
 
   return (
-    <Pressable onPress={onPress} className="gap-2 rounded-xl border border-border bg-card p-3.5 active:opacity-80">
+    <View className="gap-2 rounded-xl border border-border bg-card p-3.5">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1">
           <Text variant="footnote" className="font-bold">
             {payment.brideName}
           </Text>
           <Text variant="caption1" color="tertiary">
-            {payment.packageName}
-            {payment.dueDate ? ` · due ${formatDate(payment.dueDate)}` : ''}
+            {payment.packageName ?? 'No package'} · {formatDate(payment.paidOn)}
           </Text>
         </View>
         <View className={`rounded-full px-2 py-0.5 ${meta.className}`}>
@@ -177,62 +197,51 @@ function PaymentRow({ payment, onPress }: { payment: BridePayment; onPress: () =
         </View>
       </View>
 
-      <View className="h-2 overflow-hidden rounded-full bg-muted">
-        <View className="h-full rounded-full bg-primary" style={{ width: `${Math.max(progress * 100, 2)}%` }} />
-      </View>
-
-      <View className="flex-row justify-between">
-        <Text variant="caption2" color="tertiary">
-          Received <Text className={`${DISPLAY} text-xs`}>{egpK(payment.received)}</Text>
-        </Text>
-        <Text variant="caption2" color="tertiary">
-          Total <Text className={`${DISPLAY} text-xs`}>{egpK(payment.total)}</Text>
-        </Text>
-      </View>
-    </Pressable>
+      <Text className={`${DISPLAY} text-lg`}>{egpK(payment.amount)}</Text>
+    </View>
   );
 }
 
-const PAYMENT_TYPES: { key: PaymentType; label: string }[] = [
+const PAYMENT_TYPES: { key: PaymentKind; label: string }[] = [
   { key: 'deposit', label: 'Deposit' },
   { key: 'instalment', label: 'Instalment' },
   { key: 'final', label: 'Final payment' },
 ];
 
-function AddPaymentSheet({
-  visible,
-  brides,
-  initialBride,
-  onClose,
-}: {
-  visible: boolean;
-  brides: BridePayment[];
-  initialBride: BridePayment | null;
-  onClose: () => void;
-}) {
+function AddPaymentSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors } = useColorScheme();
   const addPayment = useAddPayment();
-  const [brideId, setBrideId] = useState<string | null>(initialBride?.id ?? null);
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<PaymentType>('deposit');
+  const { data: chatsData } = useChats();
+  const brides = chatsData?.chats ?? [];
 
-  // Sync selection when the sheet is opened from a specific row.
-  const [lastInitial, setLastInitial] = useState<string | null>(initialBride?.id ?? null);
-  if ((initialBride?.id ?? null) !== lastInitial) {
-    setLastInitial(initialBride?.id ?? null);
-    setBrideId(initialBride?.id ?? null);
-    setAmount('');
-    setType('deposit');
-  }
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [amount, setAmount] = useState('');
+  const [kind, setKind] = useState<PaymentKind>('deposit');
 
   const numericAmount = Number(amount.replace(/[^0-9.]/g, ''));
-  const canSubmit = !!brideId && numericAmount > 0 && !addPayment.isPending;
+  const canSubmit = !!conversationId && numericAmount > 0 && !addPayment.isPending;
+
+  const reset = () => {
+    setConversationId(null);
+    setAmount('');
+    setKind('deposit');
+  };
 
   const submit = () => {
-    if (!brideId || numericAmount <= 0) return;
+    if (!conversationId || numericAmount <= 0) return;
     addPayment.mutate(
-      { brideId, amount: numericAmount, type, date: new Date().toISOString() },
-      { onSuccess: onClose },
+      {
+        conversationId,
+        amount: numericAmount,
+        kind,
+        paidOn: new Date().toISOString().slice(0, 10),
+      },
+      {
+        onSuccess: () => {
+          reset();
+          onClose();
+        },
+      },
     );
   };
 
@@ -247,11 +256,11 @@ function AddPaymentSheet({
             <SectionLabel>Bride</SectionLabel>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
               {brides.map((b) => {
-                const on = b.id === brideId;
+                const on = b.id === conversationId;
                 return (
                   <Pressable
                     key={b.id}
-                    onPress={() => setBrideId(b.id)}
+                    onPress={() => setConversationId(b.id)}
                     className={`rounded-full px-3.5 py-2 ${on ? 'bg-foreground' : 'border border-border'}`}>
                     <Text variant="caption1" className={`font-bold ${on ? 'text-background' : 'text-foreground'}`}>
                       {b.brideName}
@@ -278,11 +287,11 @@ function AddPaymentSheet({
             <SectionLabel>Type</SectionLabel>
             <View className="flex-row gap-2">
               {PAYMENT_TYPES.map((t) => {
-                const on = t.key === type;
+                const on = t.key === kind;
                 return (
                   <Pressable
                     key={t.key}
-                    onPress={() => setType(t.key)}
+                    onPress={() => setKind(t.key)}
                     className={`flex-1 items-center rounded-xl px-2 py-2.5 ${on ? 'bg-primary' : 'border border-border'}`}>
                     <Text variant="caption1" className={`font-bold ${on ? 'text-white' : 'text-foreground'}`}>
                       {t.label}
