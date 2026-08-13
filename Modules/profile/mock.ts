@@ -5,18 +5,27 @@
 import { mockDelay, mockId } from "@/lib/mock-utils";
 import type {
     CategoryOptions,
-    InstagramStatus,
     Package,
     ProfileBooking,
     ProfileCategories,
     ProfileCore,
+    ProfileCoverage,
     ProfileOverview,
+    ProfilePreview,
     SupplementaryFile,
     UpdateProfileCoreInput,
     UploadFile,
     UploadImage,
     UpsertPackageInput,
 } from "./types";
+
+const MAIN_CATEGORY_ID = "cat-couture";
+const SUB_BRIDAL_ID = "cat-couture-bridal";
+const CITY_CAIRO_ID = "city-cairo";
+const CITY_ALEX_ID = "city-alexandria";
+const MARKET_EG_ID = "market-eg";
+const OCCASION_WEDDING_ID = "occ-wedding";
+const OCCASION_ENGAGEMENT_ID = "occ-engagement";
 
 const core: ProfileCore = {
   businessName: "Atelier Amira",
@@ -33,34 +42,23 @@ const core: ProfileCore = {
 };
 
 const categories: ProfileCategories = {
-  mainCategory: "Couture & Dressmakers",
-  subcategories: ["Bridal gowns"],
-  citiesServed: ["Cairo", "Alexandria"],
-  occasionsCovered: ["Wedding", "Engagement"],
+  mainCategoryId: MAIN_CATEGORY_ID,
+  categoryIds: [MAIN_CATEGORY_ID, SUB_BRIDAL_ID],
+};
+
+const coverage: ProfileCoverage = {
+  cityIds: [CITY_CAIRO_ID, CITY_ALEX_ID],
+  marketIds: [MARKET_EG_ID],
+  occasionTypeIds: [OCCASION_WEDDING_ID, OCCASION_ENGAGEMENT_ID],
 };
 
 const booking: ProfileBooking = {
-  startingPrice: 45000,
-  depositPct: 25,
-  paymentMethods: ["Cash", "Instapay", "Card"],
+  depositPercent: 25,
+  paymentMethods: ["cash", "instapay", "card"],
   maxBookingsPerDay: 2,
   maxBookingsPerWeekend: 4,
   minNoticeDays: 14,
-  availabilityBehaviour: "hide_when_booked",
-};
-
-const instagram: InstagramStatus = {
-  connected: true,
-  username: "atelier.amira",
-  lastSyncAt: new Date(Date.now() - 3 * 3600000).toISOString(),
-  portfolioImages: [
-    "https://picsum.photos/seed/portfolio-1/400/400",
-    "https://picsum.photos/seed/portfolio-2/400/400",
-    "https://picsum.photos/seed/portfolio-3/400/400",
-    "https://picsum.photos/seed/portfolio-4/400/400",
-    "https://picsum.photos/seed/portfolio-5/400/400",
-    "https://picsum.photos/seed/portfolio-6/400/400",
-  ],
+  availabilityBehaviour: "hide",
 };
 
 const packages: Package[] = [
@@ -71,34 +69,50 @@ const packages: Package[] = [
 const files: SupplementaryFile[] = [
   {
     id: "file-1",
-    name: "Lookbook_2026.pdf",
-    url: "https://example.com/lookbook.pdf",
-    uploadedAt: new Date(Date.now() - 20 * 86400000).toISOString(),
+    label: "Lookbook_2026",
+    kind: "lookbook",
+    mimeType: "application/pdf",
+    byteSize: 2_400_000,
   },
 ];
 
 const categoryOptions: CategoryOptions = {
-  mainCategories: [
-    "Couture & Dressmakers",
-    "Photography",
-    "Catering",
-    "Florists",
-    "Venues",
-    "DJs & Music",
-    "Beauty Artists",
+  categories: [
+    {
+      id: MAIN_CATEGORY_ID,
+      nameEn: "Couture & Dressmakers",
+      children: [
+        { id: SUB_BRIDAL_ID, nameEn: "Bridal gowns" },
+        { id: "cat-couture-evening", nameEn: "Evening wear" },
+        { id: "cat-couture-alterations", nameEn: "Alterations" },
+      ],
+    },
+    {
+      id: "cat-photography",
+      nameEn: "Photography",
+      children: [
+        { id: "cat-photography-wedding", nameEn: "Wedding photography" },
+        { id: "cat-photography-engagement", nameEn: "Engagement shoots" },
+      ],
+    },
+    {
+      id: "cat-catering",
+      nameEn: "Catering",
+      children: [{ id: "cat-catering-full", nameEn: "Full-service catering" }],
+    },
+    { id: "cat-florists", nameEn: "Florists", children: [] },
+    { id: "cat-venues", nameEn: "Venues", children: [] },
   ],
-  subcategoriesByMain: {
-    "Couture & Dressmakers": ["Bridal gowns", "Evening wear", "Alterations"],
-    Photography: ["Wedding photography", "Engagement shoots", "Videography"],
-    Catering: ["Full-service catering", "Desserts", "Bar service"],
-    Florists: ["Bouquets", "Venue florals", "Centerpieces"],
-    Venues: ["Indoor", "Outdoor", "Destination"],
-    "DJs & Music": ["DJ", "Live band", "MC"],
-    "Beauty Artists": ["Makeup", "Hair", "Henna"],
-  },
-  cities: ["Cairo", "Giza", "Alexandria", "Hurghada", "Sharm El Sheikh"],
-  occasions: ["Wedding", "Engagement", "Bridal shower", "Henna night"],
-  paymentMethods: ["Cash", "Instapay", "Card", "Bank transfer"],
+  cities: [
+    { id: CITY_CAIRO_ID, nameEn: "Cairo", marketId: MARKET_EG_ID },
+    { id: CITY_ALEX_ID, nameEn: "Alexandria", marketId: MARKET_EG_ID },
+    { id: "city-hurghada", nameEn: "Hurghada", marketId: MARKET_EG_ID },
+  ],
+  occasions: [
+    { id: OCCASION_WEDDING_ID, nameEn: "Wedding" },
+    { id: OCCASION_ENGAGEMENT_ID, nameEn: "Engagement" },
+    { id: "occ-henna", nameEn: "Henna night" },
+  ],
 };
 
 export const mockProfileApi = {
@@ -107,8 +121,8 @@ export const mockProfileApi = {
     return {
       profile: { ...core },
       categories: { ...categories },
+      coverage: { ...coverage },
       booking: { ...booking },
-      instagram: { ...instagram },
       files: { packages: [...packages], files: [...files] },
     };
   },
@@ -136,26 +150,16 @@ export const mockProfileApi = {
     return { ...categories };
   },
 
+  updateCoverage: async (input: ProfileCoverage): Promise<ProfileCoverage> => {
+    await mockDelay(250);
+    Object.assign(coverage, input);
+    return { ...coverage };
+  },
+
   updateBooking: async (input: ProfileBooking): Promise<ProfileBooking> => {
     await mockDelay(250);
     Object.assign(booking, input);
     return { ...booking };
-  },
-
-  connectInstagram: async (): Promise<InstagramStatus> => {
-    await mockDelay(500);
-    instagram.connected = true;
-    instagram.username = "atelier.amira";
-    instagram.lastSyncAt = new Date().toISOString();
-    return { ...instagram };
-  },
-
-  disconnectInstagram: async (): Promise<InstagramStatus> => {
-    await mockDelay(250);
-    instagram.connected = false;
-    instagram.username = null;
-    instagram.lastSyncAt = null;
-    return { ...instagram };
   },
 
   upsertPackage: async (input: UpsertPackageInput): Promise<Package> => {
@@ -182,9 +186,10 @@ export const mockProfileApi = {
     await mockDelay(400);
     const created: SupplementaryFile = {
       id: mockId(),
-      name: file.name,
-      url: file.uri,
-      uploadedAt: new Date().toISOString(),
+      label: file.name,
+      kind: "other",
+      mimeType: file.type,
+      byteSize: 0,
     };
     files.push(created);
     return created;
@@ -194,5 +199,19 @@ export const mockProfileApi = {
     await mockDelay(200);
     const index = files.findIndex((f) => f.id === fileId);
     if (index !== -1) files.splice(index, 1);
+  },
+
+  getPreview: async (): Promise<ProfilePreview> => {
+    await mockDelay(200);
+    return {
+      id: "mock-vendor-id",
+      businessName: core.businessName,
+      tagline: core.tagline,
+      completenessScore: core.completenessPct,
+      // Instagram state moved to Modules/instagram — this preview field has no
+      // live UI consumer yet (see day-02.md), so it's not worth wiring cross-module.
+      instagramConnected: true,
+      isVisibleToBrides: true,
+    };
   },
 };

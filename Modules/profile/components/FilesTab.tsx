@@ -5,7 +5,6 @@ import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Button } from '@/components/nativewindui/Button';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
-import { formatDate } from '@/lib/format';
 import { useColorScheme } from '@/lib/useColorScheme';
 import {
     useDeleteFile,
@@ -156,10 +155,10 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
                 <Icon name="doc.fill" size={18} color={colors.foreground} />
                 <View className="flex-1">
                   <Text variant="subhead" numberOfLines={1}>
-                    {file.name}
+                    {file.label || 'Untitled'}
                   </Text>
                   <Text variant="caption1" color="tertiary">
-                    {formatDate(file.uploadedAt)}
+                    {`${file.kind} · ${(file.byteSize / 1024).toFixed(0)} KB`}
                   </Text>
                 </View>
                 <Pressable onPress={() => deleteFile.mutate(file.id)} className="p-2">

@@ -71,9 +71,11 @@ export default function ProfileScreen() {
       ) : (
         <View className="flex-1">
           {tab === 'profile' ? <ProfileTab initial={data.profile} /> : null}
-          {tab === 'categories' ? <CategoriesTab initial={data.categories} /> : null}
+          {tab === 'categories' ? (
+            <CategoriesTab initial={data.categories} coverage={data.coverage} />
+          ) : null}
           {tab === 'booking' ? <BookingTab initial={data.booking} /> : null}
-          {tab === 'instagram' ? <InstagramTab status={data.instagram} /> : null}
+          {tab === 'instagram' ? <InstagramTab /> : null}
           {tab === 'files' ? <FilesTab initial={data.files} /> : null}
           {tab === 'account' ? <AccountTab /> : null}
         </View>

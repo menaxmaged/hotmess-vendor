@@ -8,6 +8,7 @@ import { profileApi } from "./api";
 import type {
     ProfileBooking,
     ProfileCategories,
+    ProfileCoverage,
     UpdateProfileCoreInput,
     UploadFile,
     UploadImage,
@@ -18,6 +19,7 @@ export const profileKeys = {
   all: ["profile"] as const,
   overview: () => [...profileKeys.all, "overview"] as const,
   categoryOptions: () => [...profileKeys.all, "category-options"] as const,
+  preview: () => [...profileKeys.all, "preview"] as const,
 };
 
 export const useProfileOverview = () => {
@@ -32,6 +34,15 @@ export const useCategoryOptions = () => {
     queryKey: profileKeys.categoryOptions(),
     queryFn: profileApi.getCategoryOptions,
     staleTime: 1000 * 60 * 30,
+  });
+};
+
+// No screen consumes this yet — exposed for a later "preview as bride" screen.
+export const useProfilePreview = () => {
+  return useQuery({
+    queryKey: profileKeys.preview(),
+    queryFn: profileApi.getPreview,
+    enabled: false,
   });
 };
 
@@ -67,30 +78,21 @@ export const useUpdateCategories = () => {
   });
 };
 
+export const useUpdateCoverage = () => {
+  const invalidate = useInvalidateProfile();
+  return useMutation({
+    mutationFn: (input: ProfileCoverage) => profileApi.updateCoverage(input),
+    onSuccess: invalidate,
+    onError: (error) => console.error("Update coverage error:", getErrorMessage(error)),
+  });
+};
+
 export const useUpdateBooking = () => {
   const invalidate = useInvalidateProfile();
   return useMutation({
     mutationFn: (input: ProfileBooking) => profileApi.updateBooking(input),
     onSuccess: invalidate,
     onError: (error) => console.error("Update booking error:", getErrorMessage(error)),
-  });
-};
-
-export const useConnectInstagram = () => {
-  const invalidate = useInvalidateProfile();
-  return useMutation({
-    mutationFn: () => profileApi.connectInstagram(),
-    onSuccess: invalidate,
-    onError: (error) => console.error("Connect Instagram error:", getErrorMessage(error)),
-  });
-};
-
-export const useDisconnectInstagram = () => {
-  const invalidate = useInvalidateProfile();
-  return useMutation({
-    mutationFn: () => profileApi.disconnectInstagram(),
-    onSuccess: invalidate,
-    onError: (error) => console.error("Disconnect Instagram error:", getErrorMessage(error)),
   });
 };
 

@@ -13,32 +13,28 @@ export interface ProfileCore {
 }
 
 export interface ProfileCategories {
-  mainCategory: string | null;
-  subcategories: string[];
-  citiesServed: string[];
-  occasionsCovered: string[];
+  mainCategoryId: string | null;
+  categoryIds: string[];
 }
 
-export type AvailabilityBehaviour =
-  | "hide_when_booked"
-  | "show_as_unavailable"
-  | "always_visible";
+/** New concept, not in the old mock — cities/markets/occasion-types the studio serves. */
+export interface ProfileCoverage {
+  cityIds: string[];
+  marketIds: string[];
+  occasionTypeIds: string[];
+}
+
+export type AvailabilityBehaviour = "hide" | "show_busy" | "allow_request";
+
+export type PaymentMethod = "cash" | "bank_transfer" | "card" | "instapay" | "wallet";
 
 export interface ProfileBooking {
-  startingPrice: number | null;
-  depositPct: number | null;
-  paymentMethods: string[];
+  depositPercent: number | null;
+  paymentMethods: PaymentMethod[];
   maxBookingsPerDay: number | null;
   maxBookingsPerWeekend: number | null;
   minNoticeDays: number | null;
-  availabilityBehaviour: AvailabilityBehaviour;
-}
-
-export interface InstagramStatus {
-  connected: boolean;
-  username?: string | null;
-  lastSyncAt?: string | null;
-  portfolioImages: string[];
+  availabilityBehaviour: AvailabilityBehaviour | null;
 }
 
 export interface Package {
@@ -48,11 +44,14 @@ export interface Package {
   soldCount: number;
 }
 
+export type FileKind = "lookbook" | "deck" | "other";
+
 export interface SupplementaryFile {
   id: string;
-  name: string;
-  url: string;
-  uploadedAt: string;
+  label: string;
+  kind: FileKind;
+  mimeType: string;
+  byteSize: number;
 }
 
 export interface ProfileFiles {
@@ -60,20 +59,44 @@ export interface ProfileFiles {
   files: SupplementaryFile[];
 }
 
+export interface VendorCategoryOption {
+  id: string;
+  nameEn: string;
+  children: { id: string; nameEn: string }[];
+}
+
+export interface CoverageCityOption {
+  id: string;
+  nameEn: string;
+  marketId: string;
+}
+
+export interface CoverageOccasionOption {
+  id: string;
+  nameEn: string;
+}
+
 export interface CategoryOptions {
-  mainCategories: string[];
-  subcategoriesByMain: Record<string, string[]>;
-  cities: string[];
-  occasions: string[];
-  paymentMethods: string[];
+  categories: VendorCategoryOption[];
+  cities: CoverageCityOption[];
+  occasions: CoverageOccasionOption[];
 }
 
 export interface ProfileOverview {
   profile: ProfileCore;
   categories: ProfileCategories;
+  coverage: ProfileCoverage;
   booking: ProfileBooking;
-  instagram: InstagramStatus;
   files: ProfileFiles;
+}
+
+export interface ProfilePreview {
+  id: string;
+  businessName: string;
+  tagline: string | null;
+  completenessScore: number;
+  instagramConnected: boolean;
+  isVisibleToBrides: boolean;
 }
 
 export interface UpdateProfileCoreInput {
