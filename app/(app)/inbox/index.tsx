@@ -11,16 +11,19 @@ import { InitialsAvatar } from '@/components/InitialsAvatar';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatRelativeTime } from '@/lib/format';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useAuth } from '@/Modules/auth/context';
 import { StatusPill } from '@/Modules/inbox/components/StatusPill';
 import {
     useAssignChat,
     useChats,
+    useConversationCounts,
     useToggleArchive,
     useTogglePin,
     useUpdateChatStatus,
 } from '@/Modules/inbox/hooks';
 import { STATUS_META, STATUS_ORDER } from '@/Modules/inbox/status';
-import type { AssigneeFilter, ChatSummary, LeadStatus, SortOption } from '@/Modules/inbox/types';
+import type { AssigneeBucket, AssigneeFilter, ChatSummary, LeadStatus, SortOption } from '@/Modules/inbox/types';
+import { useTeamOverview } from '@/Modules/team/hooks';
 
 const SORT_LABELS: Record<SortOption, string> = {
   recent: 'Most recent',
@@ -52,17 +55,36 @@ export default function InboxListScreen() {
     sort,
     search: search || undefined,
   });
+  const { data: counts } = useConversationCounts();
+  const { data: teamOverview } = useTeamOverview();
+  const { user } = useAuth();
 
   const togglePin = useTogglePin();
   const toggleArchive = useToggleArchive();
   const assignChat = useAssignChat();
   const updateStatus = useUpdateChatStatus();
 
-  const buckets = data?.assigneeBuckets ?? [
-    { id: 'all' as AssigneeFilter, label: 'All', count: 0 },
-    { id: 'me' as AssigneeFilter, label: 'Me', count: 0 },
-    { id: 'unassigned' as AssigneeFilter, label: 'Unassigned', count: 0 },
-  ];
+  const activeMembers = (teamOverview?.members ?? []).filter((m) => m.status === 'active');
+  const myMemberId = user ? String(user.id) : undefined;
+
+  // Filter-chip counts come from the real per-status/per-assignee endpoint,
+  // not by counting the (possibly filtered) fetched chat list. Chip labels
+  // are real team member names (from Modules/team), not the generic "Team
+  // member" the old client-side bucket builder had no way to resolve.
+  const buckets: AssigneeBucket[] = counts
+    ? [
+        { id: 'all', label: 'All', count: counts.total },
+        { id: 'me', label: 'Me', count: myMemberId ? (counts.byAssignee[myMemberId] ?? 0) : 0 },
+        ...activeMembers
+          .filter((m) => m.id !== myMemberId && (counts.byAssignee[m.id] ?? 0) > 0)
+          .map((m) => ({ id: m.id, label: m.name, count: counts.byAssignee[m.id] ?? 0 })),
+        { id: 'unassigned', label: 'Unassigned', count: counts.byAssignee.unassigned ?? 0 },
+      ]
+    : [
+        { id: 'all' as AssigneeFilter, label: 'All', count: 0 },
+        { id: 'me' as AssigneeFilter, label: 'Me', count: 0 },
+        { id: 'unassigned' as AssigneeFilter, label: 'Unassigned', count: 0 },
+      ];
 
   const hasActiveFilter = sort !== 'recent' || !!status;
 
@@ -78,13 +100,15 @@ export default function InboxListScreen() {
   };
 
   const openAssignSheet = (chat: ChatSummary) => {
-    const members = buckets.filter((b) => b.id !== 'all' && b.id !== 'me' && b.id !== 'unassigned');
-    const options = ['Unassign', ...members.map((m) => m.label), 'Cancel'];
+    // Full active roster, not derived from `buckets` — a member with zero
+    // currently-assigned leads has no bucket (buckets only show assignees
+    // that already occur), but must still be a valid assign target.
+    const options = ['Unassign', ...activeMembers.map((m) => m.name), 'Cancel'];
     showActionSheetWithOptions(
       { options, cancelButtonIndex: options.length - 1, title: 'Assign to' },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
-        const assigneeId = index === 0 ? null : members[index - 1]!.id;
+        const assigneeId = index === 0 ? null : activeMembers[index - 1]!.id;
         assignChat.mutate({ chatId: chat.id, assigneeId });
       },
     );

@@ -65,7 +65,14 @@ export interface ChatListParams {
 
 export interface ChatListResponse {
   chats: ChatSummary[];
-  assigneeBuckets: AssigneeBucket[];
+}
+
+// GET /vendor/conversations/counts — a status a lead is a real key only if at
+// least one lead has it; `byAssignee` uses `unassigned` for the null bucket.
+export interface ConversationCounts {
+  total: number;
+  byStatus: Partial<Record<LeadStatus, number>>;
+  byAssignee: Record<string, number>;
 }
 
 export interface Attachment {

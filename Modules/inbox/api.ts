@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Inbox Feature - API Service
  */
@@ -7,13 +6,13 @@ import { api } from "@/lib/api-client";
 import { mockInboxApi } from "./mock";
 import type {
     AddNoteInput,
-    AssigneeBucket,
     AssignChatInput,
     BrideDetail,
     ChatListParams,
     ChatListResponse,
     ChatSummary,
     ChatThread,
+    ConversationCounts,
     Message,
     MeetingSummary,
     PaymentSummary,
@@ -75,20 +74,6 @@ const mapConversation = (raw: any): ChatSummary => ({
   archived: raw.leadStatus === "archived",
   contractValue: null,
 });
-
-const buildAssigneeBuckets = (chats: ChatSummary[]): AssigneeBucket[] => {
-  const byMember = new Map<string, number>();
-  let unassigned = 0;
-  for (const chat of chats) {
-    if (!chat.assignee) unassigned++;
-    else byMember.set(chat.assignee.id, (byMember.get(chat.assignee.id) ?? 0) + 1);
-  }
-  return [
-    { id: "all", label: "All", count: chats.length },
-    ...Array.from(byMember.entries()).map(([id, count]) => ({ id, label: "Team member", count })),
-    { id: "unassigned", label: "Unassigned", count: unassigned },
-  ];
-};
 
 /**
  * List, status-update, detail, notes, pin, archive, assignee, and follow-up
@@ -158,6 +143,26 @@ const fetchBridePanel = async (chatId: string, brideName: string): Promise<Bride
   };
 };
 
+/**
+ * GET /vendor/conversations/{id}/notes — team-internal, bride-invisible.
+ * Mapped straight into `Message[]` (isNote: true) so the detail screen's
+ * single reversed-chronological list can render them inline with everything
+ * else, same shape `addNote`'s optimistic return already used.
+ */
+const fetchNotes = async (chatId: string): Promise<Message[]> => {
+  const response = await api.get<unknown>(`/vendor/conversations/${chatId}/notes`);
+  const raw = unwrapPayload<any[]>(response.data);
+  return (Array.isArray(raw) ? raw : []).map((note: any) => ({
+    id: note.id,
+    chatId,
+    sender: "vendor" as const,
+    authorName: note.author?.name,
+    text: note.body,
+    isNote: true,
+    createdAt: note.createdAt,
+  }));
+};
+
 export const inboxApi = {
   getChats: async (params?: ChatListParams): Promise<ChatListResponse> => {
     const response = await api.get<unknown>("/vendor/conversations", {
@@ -176,22 +181,35 @@ export const inboxApi = {
     });
     const raw = unwrapPayload<any[]>(response.data);
     const chats = (Array.isArray(raw) ? raw : []).map(mapConversation);
-    return { chats, assigneeBuckets: buildAssigneeBuckets(chats) };
+    return { chats };
+  },
+
+  // Real per-status/per-assignee chip counts, computed server-side over the
+  // same scope the list renders — was previously faked by counting the
+  // already-fetched (and possibly filtered/paginated) chat list client-side.
+  getCounts: async (): Promise<ConversationCounts> => {
+    const response = await api.get<unknown>("/vendor/conversations/counts");
+    return unwrapPayload<ConversationCounts>(response.data);
   },
 
   // mockInboxApi.getChat only knows its own 6 hardcoded chat ids — since
   // getChats above is now live, tapping a real conversation would throw
   // "Mock chat not found" there. Fall back to the real (thin) detail
-  // endpoint instead of crashing: same status/assignee data as the list,
-  // just an empty message thread and bride panel rather than a broken screen.
+  // endpoint instead of crashing: same status/assignee data as the list.
+  // `messages` is internal notes only (real, via fetchNotes) — there's still
+  // no bride<->vendor message-read endpoint anywhere under Vendor Studio, so
+  // actual chat messages stay absent rather than faked.
   getChat: async (chatId: string): Promise<ChatThread> => {
     try {
       return await mockInboxApi.getChat(chatId);
     } catch {
       const response = await api.get<unknown>(`/vendor/conversations/${chatId}`);
       const chat = mapConversation(unwrapPayload<any>(response.data));
-      const bride = await fetchBridePanel(chatId, chat.brideName);
-      return { chat, bride, messages: [] };
+      const [bride, notes] = await Promise.all([
+        fetchBridePanel(chatId, chat.brideName),
+        fetchNotes(chatId),
+      ]);
+      return { chat, bride, messages: notes };
     }
   },
 

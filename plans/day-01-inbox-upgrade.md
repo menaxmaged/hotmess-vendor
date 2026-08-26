@@ -36,3 +36,17 @@ Pulled exact request/response schemas straight from the live spec (`GET /docs/sw
 - `npx eslint Modules/inbox` — 0 errors (1 pre-existing-pattern warning, not new).
 - `git status --short` — diff scoped to the intended files.
 - **Not done**: no live device/simulator test (no running Expo session, no real vendor session available this pass — same credential gap as the dashboard's admin-auth pass). Correctness here rests on `tsc` + matching the live OpenAPI schemas exactly, not an end-to-end run.
+
+## Update 2026-08-13 (later, from a vendor-wide route-coverage audit): counts + notes wired
+
+A full audit of every `/v1/vendor/*` route against every module's call sites found two real endpoints this module never called:
+
+- **`GET /vendor/conversations/counts`** — the inbox header's per-status/per-assignee chip counts were computed client-side from the (possibly filtered) fetched chat list, not from this dedicated server-computed endpoint. Added `getCounts()` + `useConversationCounts()`; the inbox screen's filter chips now show real counts.
+- **`GET /vendor/conversations/{id}/notes`** — `addNote` (POST) was wired, but the matching GET was never called, so `getChat`'s real-detail branch always returned `messages: []` — an added note had nowhere to render on refetch. Added `fetchNotes()`, merged into `getChat`'s messages array.
+- **Found and fixed while wiring counts, not itself a route gap**: the assignee filter chips' labels were always "Team member" (a placeholder — the list/detail conversation payloads only ever carry `assignedMemberId`, no name) and, worse, the sheet for *assigning* a chat only ever offered members who already had at least one assigned lead — a team member with zero current assignments could never be picked as a first assignee. Both come from the same root cause: the old bucket-builder derived its member list from the fetched chat list instead of the real team roster. Fixed by joining `Modules/team`'s real `useTeamOverview()` into the inbox screen for both the chip labels and (separately, using the *full* active roster, not the buckets) the assign-target picker.
+- `ChatListResponse.assigneeBuckets` removed from the type (dead once buckets moved to the screen); `AssigneeBucket` stays, now built at the screen level.
+- Both `useUpdateChatStatus` and `useAssignChat` now also invalidate the counts query key, or the chip counts would silently go stale after any status change or reassignment.
+
+### Verification
+- `npx tsc --noEmit` — clean. `npx eslint Modules/inbox app/(app)/inbox` — 0 errors.
+- Not live-tested — same gap as the rest of this pass.

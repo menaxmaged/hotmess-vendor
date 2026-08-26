@@ -37,6 +37,13 @@ export const useChat = (chatId: string | undefined) => {
   });
 };
 
+export const useConversationCounts = () => {
+  return useQuery({
+    queryKey: [...inboxKeys.all, "counts"] as const,
+    queryFn: inboxApi.getCounts,
+  });
+};
+
 const useInvalidateInbox = (chatId?: string) => {
   const queryClient = useQueryClient();
   return () => {
@@ -66,6 +73,7 @@ export const useUpdateChatStatus = () => {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: inboxKeys.lists() });
       queryClient.invalidateQueries({ queryKey: inboxKeys.detail(variables.chatId) });
+      queryClient.invalidateQueries({ queryKey: [...inboxKeys.all, "counts"] });
     },
     onError: (error) => {
       console.error("Update status error:", getErrorMessage(error));
@@ -80,6 +88,7 @@ export const useAssignChat = () => {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: inboxKeys.lists() });
       queryClient.invalidateQueries({ queryKey: inboxKeys.detail(variables.chatId) });
+      queryClient.invalidateQueries({ queryKey: [...inboxKeys.all, "counts"] });
     },
     onError: (error) => {
       console.error("Assign chat error:", getErrorMessage(error));
