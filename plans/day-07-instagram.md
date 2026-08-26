@@ -33,3 +33,11 @@ Pulled exact request/response schemas from the live spec (`/vendor/instagram*`, 
 - `npx eslint Modules/instagram Modules/profile app/(app)/more/profile.tsx` — 0 errors after fixing two `react/no-unescaped-entities` (apostrophes).
 - `git status --short` — diff scoped to new `Modules/instagram/*`, `Modules/profile/*` (Instagram removed), and `app/(app)/more/profile.tsx`.
 - **Not done, and can't be done without the missing Meta App ID + backend registration**: an actual end-to-end OAuth handshake. No live device/simulator test either — same gap as days 1–6.
+
+## Update 2026-08-13 (later, from a vendor-wide route-coverage audit): portfolio grid wired
+
+The "found but not wired" flag above got closed. `GET /vendors/{id}/instagram-posts` needed the studio's own vendor id, which `Modules/profile`'s `ProfileOverview.profile` never surfaced (the real `GET /vendor/profile` payload includes `id`, day-2's mapping just discarded it) — added `id` to `ProfileCore` and its mapping, threaded through as a `vendorId` prop from `profile.tsx` into `InstagramTab`. Added `getPortfolio(vendorId)` + `useInstagramPortfolio(vendorId)` to `Modules/instagram`; the connected state now renders a real image grid instead of the placeholder message. The 403 `upgrade_required` this route can answer (it's Premium-gated, shared with the bride-facing directory view) isn't specially handled — it surfaces through the same generic error state as any other fetch failure, which is honest but not a tailored "upgrade to see this" message; acceptable for now, flag if it needs to be nicer.
+
+### Verification
+- `npx tsc --noEmit` — clean. `npx eslint Modules/instagram Modules/profile app/(app)/more/profile.tsx` — 0 errors.
+- Not live-tested — same gap as the rest of this pass. In particular, never confirmed against a real connected Instagram account (blocked on the same missing Meta App ID as `connect` itself).

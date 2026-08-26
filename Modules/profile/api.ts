@@ -98,6 +98,7 @@ const liveProfileApi = {
 
     return {
       profile: {
+        id: profile.id,
         businessName: profile.businessName,
         tagline: profile.tagline ?? "",
         bio: profile.bio ?? "",

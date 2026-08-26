@@ -28,6 +28,7 @@ const OCCASION_WEDDING_ID = "occ-wedding";
 const OCCASION_ENGAGEMENT_ID = "occ-engagement";
 
 const core: ProfileCore = {
+  id: "mock-vendor-id",
   businessName: "Atelier Amira",
   tagline: "Couture bridal, made in Cairo",
   bio: "We design and hand-finish bridal gowns for brides who want something no one else will wear. Every piece starts with a sketch and a conversation.",

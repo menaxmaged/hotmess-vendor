@@ -75,7 +75,7 @@ export default function ProfileScreen() {
             <CategoriesTab initial={data.categories} coverage={data.coverage} />
           ) : null}
           {tab === 'booking' ? <BookingTab initial={data.booking} /> : null}
-          {tab === 'instagram' ? <InstagramTab /> : null}
+          {tab === 'instagram' ? <InstagramTab vendorId={data.profile.id} /> : null}
           {tab === 'files' ? <FilesTab initial={data.files} /> : null}
           {tab === 'account' ? <AccountTab /> : null}
         </View>

@@ -4,7 +4,7 @@
 
 import { api, USE_MOCK_DATA } from "@/lib/api-client";
 import { mockInstagramApi } from "./mock";
-import type { ConnectInstagramInput, InstagramConnection } from "./types";
+import type { ConnectInstagramInput, InstagramConnection, InstagramGrid } from "./types";
 
 const unwrap = <T>(payload: unknown): T => {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
@@ -30,6 +30,11 @@ const liveInstagramApi = {
   disconnect: async (): Promise<InstagramConnection> => {
     const response = await api.delete<unknown>("/vendor/instagram");
     return unwrap<InstagramConnection>(response.data);
+  },
+
+  getPortfolio: async (vendorId: string): Promise<InstagramGrid> => {
+    const response = await api.get<unknown>(`/vendors/${vendorId}/instagram-posts`);
+    return unwrap<InstagramGrid>(response.data);
   },
 };
 

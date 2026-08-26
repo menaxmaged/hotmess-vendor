@@ -19,9 +19,17 @@ export const useInstagramConnection = () => {
   });
 };
 
+export const useInstagramPortfolio = (vendorId: string | undefined) => {
+  return useQuery({
+    queryKey: [...instagramKeys.all, "portfolio", vendorId] as const,
+    queryFn: () => instagramApi.getPortfolio(vendorId as string),
+    enabled: !!vendorId,
+  });
+};
+
 const useInvalidateInstagram = () => {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: instagramKeys.connection() });
+  return () => queryClient.invalidateQueries({ queryKey: instagramKeys.all });
 };
 
 // Runs the full authorize-redirect → code-capture → exchange sequence.

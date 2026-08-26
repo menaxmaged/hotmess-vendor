@@ -3,6 +3,7 @@
  */
 
 export interface ProfileCore {
+  id: string;
   businessName: string;
   tagline: string;
   bio: string;

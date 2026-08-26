@@ -3,7 +3,32 @@
  */
 
 import { mockDelay } from "@/lib/mock-utils";
-import type { ConnectInstagramInput, InstagramConnection } from "./types";
+import type { ConnectInstagramInput, InstagramConnection, InstagramGrid } from "./types";
+
+const portfolio: InstagramGrid = {
+  connected: true,
+  cached: true,
+  posts: [
+    {
+      id: "post-1",
+      mediaType: "IMAGE",
+      mediaUrl: "https://picsum.photos/seed/ig-1/400/400",
+      thumbnailUrl: null,
+      permalink: "https://www.instagram.com/p/mock1/",
+      caption: "Sunset ceremony at the Manial Palace.",
+      timestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
+    },
+    {
+      id: "post-2",
+      mediaType: "IMAGE",
+      mediaUrl: "https://picsum.photos/seed/ig-2/400/400",
+      thumbnailUrl: null,
+      permalink: "https://www.instagram.com/p/mock2/",
+      caption: null,
+      timestamp: new Date(Date.now() - 12 * 86400000).toISOString(),
+    },
+  ],
+};
 
 let connection: InstagramConnection = {
   connected: true,
@@ -41,5 +66,10 @@ export const mockInstagramApi = {
       configured: true,
     };
     return { ...connection };
+  },
+
+  getPortfolio: async (_vendorId: string): Promise<InstagramGrid> => {
+    await mockDelay(300);
+    return connection.connected ? { ...portfolio } : { connected: false, posts: [], cached: false };
   },
 };
