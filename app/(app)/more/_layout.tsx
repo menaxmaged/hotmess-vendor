@@ -6,11 +6,12 @@ export default function MoreStackLayout() {
       <Stack.Screen name="index" options={{ title: 'More' }} />
       <Stack.Screen name="profile" options={{ title: 'Profile & Settings' }} />
       <Stack.Screen name="automation" options={{ title: 'Automation' }} />
-      <Stack.Screen name="auto-assign" options={{ title: 'Auto-Assign Rules' }} />
       <Stack.Screen name="team" options={{ headerShown: false }} />
       <Stack.Screen name="ads" options={{ title: 'Sponsored Ads' }} />
       <Stack.Screen name="premium" options={{ title: 'Subscription & Premium' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="onboarding-checklist" options={{ title: 'Setup Checklist' }} />
+      <Stack.Screen name="saved-replies" options={{ title: 'Saved Replies' }} />
     </Stack>
   );
 }

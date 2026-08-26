@@ -7,7 +7,7 @@ import { InitialsAvatar } from '@/components/InitialsAvatar';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
 import { useAuth } from '@/Modules/auth/context';
-import { useHomeSubscriptionSummary } from '@/Modules/home/hooks';
+import { useSubscription } from '@/Modules/subscription/hooks';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 interface MenuItem {
@@ -22,9 +22,9 @@ export default function MoreScreen() {
   const router = useRouter();
   const { colors } = useColorScheme();
   const { user, signOut } = useAuth();
-  const { data: subscription } = useHomeSubscriptionSummary();
+  const { data: subscription } = useSubscription();
 
-  const isPremium = subscription?.plan === 'premium';
+  const isPremium = subscription?.isPremium ?? false;
 
   const studioItems: MenuItem[] = [
     {
@@ -37,20 +37,20 @@ export default function MoreScreen() {
       href: '/(app)/more/automation',
       icon: 'bolt.fill',
       label: 'Automation',
-      description: 'Welcome flow, intake questions, auto-reply',
-    },
-    {
-      href: '/(app)/more/auto-assign',
-      icon: 'arrow.right.circle.fill',
-      label: 'Auto-Assign Rules',
-      description: 'Route chats to team members by status',
-      badge: isPremium ? undefined : 'Premium',
+      description: 'Welcome flow, intake questions, auto-reply, lead auto-assign',
     },
     {
       href: '/(app)/more/team',
       icon: 'person.2.fill',
       label: 'Team & Roles',
       description: 'Invite members, manage permissions',
+      badge: isPremium ? undefined : 'Premium',
+    },
+    {
+      href: '/(app)/more/saved-replies' as Href,
+      icon: 'quote.bubble.fill',
+      label: 'Saved Replies',
+      description: 'Quick-insert replies for common questions',
       badge: isPremium ? undefined : 'Premium',
     },
   ];

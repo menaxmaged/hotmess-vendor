@@ -37,3 +37,7 @@ Pulled exact request/response schemas from the live spec (`/vendor/automation/*`
 - `npx eslint Modules/automation app/(app)/more/automation.tsx` — 0 errors.
 - `git status --short` — diff scoped to new `Modules/automation/*` and `app/(app)/more/automation.tsx`.
 - **Not done**: no live device/simulator test, no real vendor account — same gap as days 1–5.
+
+## Update 2026-08-13 (later, while building the auto-assign-rules UI addendum above): found and removed a duplicate screen
+
+While adding the auto-assign-rules UI, discovered `app/(app)/more/auto-assign.tsx` — a separate, pre-existing, fully-mock screen (local `useState` seeded from a hardcoded array, "New rule" just fired an `Alert`) reachable from its own "Auto-Assign Rules" entry in the More menu, modeling rules by a completely different, wrong criteria shape (single `LeadStatus` trigger) than the real API (`leadSource`/`cityIds`/`occasionTypeIds`, ANDed/ORed). Two auto-assign UIs would have shipped side by side. Deleted the dead screen, removed its route from `more/_layout.tsx`'s `Stack.Screen` list and its separate More-menu entry, and folded its description into the "Automation" menu entry instead.
