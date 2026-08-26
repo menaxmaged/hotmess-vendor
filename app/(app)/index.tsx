@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
@@ -21,10 +22,10 @@ import type {
     HomeInsight,
     HomeKpis,
     HomeRevenue,
-    SetupChecklist,
     SubscriptionSummary,
     TeamMemberActivity,
 } from '@/Modules/home/types';
+import { useOnboardingChecklist } from '@/Modules/onboarding-checklist/hooks';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatCurrency, formatDate } from '@/lib/format';
 
@@ -139,6 +140,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function OverviewTab() {
   const router = useRouter();
   const { data, isLoading, isError, error, refetch, isRefetching } = useHomeOverview();
+  const { data: checklistItems } = useOnboardingChecklist();
 
   if (isLoading) {
     return (
@@ -152,8 +154,10 @@ function OverviewTab() {
     return <ErrorState message={getErrorMessage(error)} onRetry={refetch} />;
   }
 
-  const { setupChecklist, revenue, kpis, funnel, teamToday, insight } = data;
-  const showSetupNudge = setupChecklist && setupChecklist.completed < setupChecklist.total;
+  const { revenue, kpis, funnel, teamToday, insight } = data;
+  const checklistTotal = checklistItems?.length ?? 0;
+  const checklistCompleted = checklistItems?.filter((i) => i.completedAt).length ?? 0;
+  const showSetupNudge = checklistTotal > 0 && checklistCompleted < checklistTotal;
 
   return (
     <ScrollView
@@ -189,7 +193,11 @@ function OverviewTab() {
       ) : null}
 
       {showSetupNudge ? (
-        <SetupNudge checklist={setupChecklist} onPress={() => router.push('/(app)/more')} />
+        <SetupNudge
+          completed={checklistCompleted}
+          total={checklistTotal}
+          onPress={() => router.push('/(app)/more/onboarding-checklist' as Href)}
+        />
       ) : null}
     </ScrollView>
   );
@@ -456,7 +464,15 @@ function InsightCard({ insight, onPress }: { insight: HomeInsight; onPress: () =
   );
 }
 
-function SetupNudge({ checklist, onPress }: { checklist: SetupChecklist; onPress: () => void }) {
+function SetupNudge({
+  completed,
+  total,
+  onPress,
+}: {
+  completed: number;
+  total: number;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
@@ -467,7 +483,7 @@ function SetupNudge({ checklist, onPress }: { checklist: SetupChecklist; onPress
       </View>
       <View className="flex-1">
         <Text variant="caption2" style={{ color: '#7A4500' }} className="font-extrabold uppercase tracking-wider">
-          {`${checklist.completed} of ${checklist.total} setup steps`}
+          {`${completed} of ${total} setup steps`}
         </Text>
         <Text style={{ color: '#1D1B20' }} className={`${DISPLAY} mt-0.5 text-[15px]`}>
           finish your studio setup
