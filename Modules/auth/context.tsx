@@ -10,6 +10,7 @@ import {
 import { Platform } from "react-native";
 import { getErrorMessage, tokenManager } from "../../lib/api-client";
 import i18n from "../../lib/i18n";
+import { revokePushDevice } from "../notifications/push";
 import { authApi } from "./api";
 import type { LoginResponse, VendorSignupRequest } from "./types";
 
@@ -106,13 +107,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Revoke server-side too — best-effort, local sign-out proceeds regardless
-    // of network state. (Previously nothing called authApi.logout(); the token
-    // only ever cleared client-side.)
-    void authApi.logout().catch(() => {});
+    // Server-side cleanup is best-effort and must run before the auth token is
+    // cleared — both calls need it. (The token used to be removed in the same
+    // tick, racing the logout request.) Local sign-out doesn't wait on the network.
+    void (async () => {
+      await revokePushDevice().catch(() => {});
+      await authApi.logout().catch(() => {});
+      await Promise.all([tokenManager.remove(), userCache.clear()]);
+    })();
     setUser(null);
-    void tokenManager.remove();
-    void userCache.clear();
     router.replace("/(auth)/login");
   };
 

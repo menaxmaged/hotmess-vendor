@@ -1,13 +1,14 @@
 import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ColorValue } from 'react-native';
+import { Platform, type ColorValue } from 'react-native';
 
 import { Icon } from '@/components/nativewindui/Icon';
 import { currentLanguage, setAppLanguage, storedLanguage } from '@/lib/i18n';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useMe } from '@/Modules/account/hooks';
 import { useUnreadCount } from '@/Modules/inbox/hooks';
+import { PushBridge } from '@/Modules/notifications/components/PushBridge';
 
 const asString = (color: ColorValue) => color as string;
 
@@ -29,7 +30,9 @@ export default function AppTabsLayout() {
   }, [me?.localePref]);
 
   return (
-    <Tabs
+    <>
+      {Platform.OS !== 'web' ? <PushBridge /> : null}
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.grey,
@@ -76,6 +79,7 @@ export default function AppTabsLayout() {
         }}
       />
       <Tabs.Screen name="finance" options={{ href: null, headerShown: false }} />
-    </Tabs>
+      </Tabs>
+    </>
   );
 }

@@ -27,6 +27,14 @@ let preferences: NotificationPreference[] = [
 ];
 
 export const mockNotificationsApi = {
+  registerDeviceToken: async (_token: string, _platform: "ios" | "android" | "web"): Promise<void> => {
+    await mockDelay(100);
+  },
+
+  revokeDeviceToken: async (_token: string): Promise<void> => {
+    await mockDelay(100);
+  },
+
   list: async (page = 1, unreadOnly = false): Promise<NotificationsPage> => {
     await mockDelay();
     return {

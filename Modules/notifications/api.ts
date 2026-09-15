@@ -2,9 +2,8 @@
  * Notifications Feature - API Service
  *
  * In-app list + badge + read state (tag "Notifications") and the per-type
- * channel toggles under /users/me/notification-preferences. Device-token
- * registration is not wired: it needs expo-notifications, which isn't a
- * dependency of this app yet.
+ * channel toggles under /users/me/notification-preferences, plus push
+ * device-token register/revoke (driven by `push.ts`).
  */
 
 import { api, USE_MOCK_DATA } from "@/lib/api-client";
@@ -23,7 +22,19 @@ const unwrap = <T>(payload: unknown): T => {
 
 const PAGE_SIZE = 25;
 
+export type PushPlatform = "ios" | "android" | "web";
+
 const liveNotificationsApi = {
+  // Upserts on the token, so a device that signs into another account just moves over.
+  registerDeviceToken: async (token: string, platform: PushPlatform): Promise<void> => {
+    await api.post("/notifications/device-tokens", { token, platform });
+  },
+
+  // `{id}` is the token itself. Unknown or already-revoked is a 404; callers treat it as done.
+  revokeDeviceToken: async (token: string): Promise<void> => {
+    await api.delete(`/notifications/device-tokens/${encodeURIComponent(token)}`);
+  },
+
   list: async (page = 1, unreadOnly = false): Promise<NotificationsPage> => {
     const response = await api.get<unknown>("/notifications", {
       params: { page, limit: PAGE_SIZE, unreadOnly: unreadOnly ? "true" : "false" },
