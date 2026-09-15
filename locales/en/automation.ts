@@ -47,6 +47,19 @@ const automation = {
   assignToLabel: "ASSIGN TO",
   adding: "Adding…",
   addRule: "Add rule",
+  files: {
+    title: "Files to send · {{value}}/5",
+    hint: "Sent to the bride right after your greeting. Pick from the files on your profile.",
+    empty: "No files on your profile yet.",
+    manage: "Add files in Profile → Files",
+    untitled: "Untitled file",
+    missing: "Won't be sent — this file's upload is missing. Re-upload it in Profile → Files.",
+    maxTitle: "Up to 5 files",
+    maxBody: "A welcome flow can send at most 5 files. Remove one to add another.",
+    noneTitle: "No files selected",
+    noneBody: "This mode sends files after the greeting, but none are selected. Save anyway?",
+    saveAnyway: "Save anyway",
+  },
 };
 
 export default automation;

@@ -101,7 +101,7 @@ export const mockAutomationApi = {
         prompt: q.prompt,
         isRequired: q.isRequired ?? false,
       })),
-      files: [],
+      files: (input.fileIds ?? []).map((id) => ({ id, hasBlob: true })),
     };
     return { ...welcomeFlow };
   },

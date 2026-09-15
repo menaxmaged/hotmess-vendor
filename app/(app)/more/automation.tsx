@@ -1,4 +1,6 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
+import type { Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
@@ -16,7 +18,7 @@ import {
     useWelcomeFlow,
 } from '@/Modules/automation/hooks';
 import type { AutoAssignRule, LeadSource, WelcomeFlow, WelcomeFlowMode } from '@/Modules/automation/types';
-import { useCategoryOptions } from '@/Modules/profile/hooks';
+import { useCategoryOptions, useProfileOverview } from '@/Modules/profile/hooks';
 import type { CoverageCityOption, CoverageOccasionOption } from '@/Modules/profile/types';
 import { useSubscription } from '@/Modules/subscription/hooks';
 import { useTeamOverview } from '@/Modules/team/hooks';
@@ -99,8 +101,10 @@ function AutomationForm({
   const [message, setMessage] = useState(initial.message ?? '');
   const [questions, setQuestions] = useState<string[]>(initial.questions.map((q) => q.prompt));
   const [newQuestion, setNewQuestion] = useState('');
+  const [fileIds, setFileIds] = useState<string[]>(initial.files.map((f) => f.id));
 
   const showQuestions = mode === 'welcome_q' || mode === 'full';
+  const showFiles = mode === 'welcome_files' || mode === 'full';
 
   const selectMode = (m: Mode, premium: boolean) => {
     if (premium && !isPremium) {
@@ -118,19 +122,32 @@ function AutomationForm({
     setNewQuestion('');
   };
 
-  const onSave = () => {
+  const save = () => {
     setWelcomeFlow.mutate(
       {
         mode: MODE_TO_REAL[mode],
         message: mode === 'off' ? null : message,
         questions: showQuestions ? questions.map((prompt) => ({ prompt, isRequired: false })) : [],
-        fileIds: [],
+        // `VendorFile` ids from the studio's own portfolio (Profile → Files), max 5.
+        fileIds: showFiles ? fileIds : [],
       },
       {
         onSuccess: () => Alert.alert(t('savedTitle'), t('savedBody')),
         onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
       },
     );
+  };
+
+  // A files mode with nothing picked used to save silently and send no files.
+  const onSave = () => {
+    if (showFiles && fileIds.length === 0) {
+      Alert.alert(t('files.noneTitle'), t('files.noneBody'), [
+        { text: t('common:actions.cancel'), style: 'cancel' },
+        { text: t('files.saveAnyway'), onPress: save },
+      ]);
+      return;
+    }
+    save();
   };
 
   return (
@@ -205,6 +222,14 @@ function AutomationForm({
         </View>
       ) : null}
 
+      {showFiles ? (
+        <WelcomeFilesPicker
+          selected={fileIds}
+          onChange={setFileIds}
+          missingIds={initial.files.filter((f) => !f.hasBlob).map((f) => f.id)}
+        />
+      ) : null}
+
       {showQuestions ? (
         <View>
           <SectionLabel>{t('intakeQuestions', { value: questions.length })}</SectionLabel>
@@ -252,6 +277,87 @@ function AutomationForm({
 
       <AutoAssignRulesSection isPremium={isPremium} />
     </ScrollView>
+  );
+}
+
+const MAX_WELCOME_FILES = 5;
+
+/** Picks which profile files the welcome flow sends (PUT welcome-flow `fileIds`). */
+function WelcomeFilesPicker({
+  selected,
+  onChange,
+  missingIds,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  missingIds: string[];
+}) {
+  const { t } = useTranslation('automation');
+  const router = useRouter();
+  const { colors } = useColorScheme();
+  const { data: profile, isLoading } = useProfileOverview();
+  const files = profile?.files.files ?? [];
+
+  const toggle = (id: string) => {
+    if (selected.includes(id)) {
+      onChange(selected.filter((x) => x !== id));
+      return;
+    }
+    if (selected.length >= MAX_WELCOME_FILES) {
+      Alert.alert(t('files.maxTitle'), t('files.maxBody'));
+      return;
+    }
+    onChange([...selected, id]);
+  };
+
+  return (
+    <View>
+      <SectionLabel>{t('files.title', { value: selected.length })}</SectionLabel>
+      <Card className="gap-2">
+        <Text variant="caption1" color="tertiary">
+          {t('files.hint')}
+        </Text>
+        {isLoading ? (
+          <ActivityIndicator />
+        ) : files.length === 0 ? (
+          <Text variant="footnote" color="tertiary">
+            {t('files.empty')}
+          </Text>
+        ) : (
+          files.map((file) => {
+            const on = selected.includes(file.id);
+            const missing = missingIds.includes(file.id);
+            return (
+              <Pressable
+                key={file.id}
+                onPress={() => toggle(file.id)}
+                className={`flex-row items-center gap-3 rounded-xl border p-3 ${on ? 'border-primary bg-primary/5' : 'border-border bg-background'}`}>
+                <View
+                  className={`h-5 w-5 items-center justify-center rounded-md border-2 ${on ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                  {on ? <Icon name="checkmark" size={12} color="#fff" /> : null}
+                </View>
+                <Icon name="doc.fill" size={16} color={colors.grey} />
+                <View className="flex-1">
+                  <Text variant="footnote" className="font-medium" numberOfLines={1}>
+                    {file.label || t('files.untitled')}
+                  </Text>
+                  {missing ? (
+                    <Text variant="caption2" className="text-destructive">
+                      {t('files.missing')}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+        <Pressable onPress={() => router.push('/(app)/more/profile?tab=files' as Href)}>
+          <Text variant="caption1" className="font-bold text-primary">
+            {t('files.manage')}
+          </Text>
+        </Pressable>
+      </Card>
+    </View>
   );
 }
 

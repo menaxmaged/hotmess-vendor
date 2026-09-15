@@ -17,7 +17,7 @@ const automation: Translation<typeof en> = {
   modeTitle: "وضع الرسائل التلقائية",
   welcomeMessage: "رسالة الترحيب",
   messagePlaceholder: "اكتب رسالة الترحيب…",
-  intakeQuestions: "أسئلة الاستفسار · {{value}}/6",
+  intakeQuestions: "أسئلة الاستفسار · {{value}} من 6",
   addQuestionPlaceholder: "أضف سؤالاً…",
   add: "إضافة",
   saving: "جارٍ الحفظ…",
@@ -50,6 +50,19 @@ const automation: Translation<typeof en> = {
   assignToLabel: "إسناد إلى",
   adding: "جارٍ الإضافة…",
   addRule: "إضافة القاعدة",
+  files: {
+    title: "الملفات المرسلة · {{value}} من 5",
+    hint: "تُرسل إلى العروس بعد رسالة الترحيب مباشرة. اختر من الملفات الموجودة في ملفك.",
+    empty: "لا توجد ملفات في ملفك بعد.",
+    manage: "أضف ملفات من الملف ← الملفات",
+    untitled: "ملف بدون عنوان",
+    missing: "لن يُرسل — رفع هذا الملف غير مكتمل. أعد رفعه من الملف ← الملفات.",
+    maxTitle: "حتى 5 ملفات",
+    maxBody: "يمكن لرسالة الترحيب إرسال 5 ملفات كحد أقصى. أزل ملفاً لإضافة آخر.",
+    noneTitle: "لم يتم اختيار ملفات",
+    noneBody: "هذا الوضع يرسل ملفات بعد الترحيب، لكن لم يتم اختيار أي ملف. هل تريد الحفظ على أي حال؟",
+    saveAnyway: "الحفظ على أي حال",
+  },
 };
 
 export default automation;
