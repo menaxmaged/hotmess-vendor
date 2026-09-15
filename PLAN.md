@@ -37,7 +37,7 @@ Notifications module, calendar CRUD UI, forgot-password screens, vendor self-reg
 
 ## Spec re-audit series (days 12–18)
 
-> **Status: implemented 2026-09-15, not committed.** Re-audited against the live spec (368 ops). Every `api.*`/`apiFormData.*`/`apiClient.*` call site was cross-referenced by method + path, and every exported api method / hook was checked for a screen that reaches it. Day files have the full "what was actually built" / "verification actually performed" records.
+> **Status: implemented and committed 2026-09-15** (`e21e8ad` + per-day plan commits). Re-audited against the live spec (368 ops). Every `api.*`/`apiFormData.*`/`apiClient.*` call site was cross-referenced by method + path, and every exported api method / hook was checked for a screen that reaches it. Day files have the full "what was actually built" / "verification actually performed" records.
 
 Result: **0 calls to routes that don't exist** (was 6 — ads, analytics, home), and every vendor-relevant spec op has a screen except the 2 push device-token routes. Bride-only routes (occasions, tasks, bridesmaids, community feed, browse/save vendors, bride-side conversation routes, bride CMS content, affiliate) are out of scope for this app.
 
@@ -60,16 +60,19 @@ Result: **0 calls to routes that don't exist** (was 6 — ads, analytics, home),
 | 26 | i18n: profile tabs, team/roles/invite, notifications + prefs, saved replies, checklist (201 keys) | **booking/categories/coverage saves gave no feedback — fixed**; file delete had no confirm — fixed; Instagram/WhatsApp dev jargon and raw IG id replaced; leftover-English scan: 0 real strings left |
 | 27 | RTL sweep | direction icons mirrored centrally in `Icon` (web/Android); one RTL-safe `Toggle` replaces 3 raw web-patched `Switch`es; interpolated values bidi-isolated in Arabic; number columns end-aligned on web |
 | 28 | Studio status (pending / suspended / delisted) | `GET /vendor/profile` `status` was dropped — now mapped; banner on Home, Inbox, More explains hidden profile / read-only chats; read-only composer already existed |
+| 29 | Welcome-flow files picker | files modes always saved `fileIds: []` — now pick up to 5 portfolio files, warn on missing blobs, confirm when none; Arabic `{{n}}/N` counters rendered reversed — now `{{n}} من N` |
+| 30 | Push device tokens | `expo-notifications` added; register on sign-in, revoke on logout, tap follows `deepLink`; **logout cleared the auth token before its own server call — fixed**; blocked on `google-services.json` + APNs for real pushes |
 
 Still open (need a decision or a backend change): backend to confirm `POST /files` accepts `kind=vendor_portfolio` (its own enum says only `chat_attachment`, while `/vendor/profile/files` requires it — cover, portfolio and ad creative uploads depend on it); money is `×100` everywhere (fine for EGP only); `expo-notifications` for push tokens; payment SDK for `PUT /subscription/payment-method` and for ad/subscription checkout to actually settle; a file-download route for finance exports; campaign/placement item schemas; live verification of everything (no vendor test account in this environment).
 
 ## UI + i18n series (days 20–28) — open items
 
-> Status: implemented 2026-09-15, not committed. Each day file has "what was actually built" and "verification actually performed".
+> Status: implemented and committed 2026-09-15 (code in `e21e8ad`, one docs commit per day). Each day file has "what was actually built" and "verification actually performed".
 
 These still need a person, a device, or the backend:
 - **Arabic copy review by a native speaker.** All translations were written in this pass, especially the brand-voice headings, lead statuses, and permission names.
 - **An Arabic display font.** Fraunces has no Arabic glyphs, so Arabic headings fall back to the system font.
+- **Push credentials** (day 30): `google-services.json` + `android.googleServicesFile` for Android, APNs capability for iOS, then a device build. Code is in place.
 - **Native verification.** Nothing in days 20–28 ran on iOS or Android. Untested: the RTL restart path (`forceRTL`), SF Symbol mirroring on iOS, the Material chevron swap on Android, and safe-area insets on notched devices.
 - **Backend-provided English with no Arabic twin in the payload:**
   - placement `demandLabel`
@@ -102,8 +105,8 @@ Highlights and open flags, newest-relevant first:
 - **Day 4**: rebuilt around a flat per-transaction ledger — the real API has no per-bride running-total concept at all. Report export/poll wired API-only, no UI.
 - **Day 2**: `updateCore`/`uploadCoverImage` still on mock — no cover-image upload endpoint exists in the live spec, and `businessName` isn't editable server-side at all.
 
-Still not planned:
-- Notifications module (real endpoints exist, zero client code today — needs `expo-notifications` dep + device-token registration + new screens).
-- Calendar create/edit/delete UI (API layer ready, screen has no affordance yet).
-- Revisit `Modules/inbox#getChat` once the backend adds a message-read endpoint and richer bride detail — the thin-detail fallback should be replaced with the real thing at that point.
-- Home, Ads, Analytics modules — still zero backend coverage.
+Still not planned (superseded 2026-09-15 — kept short; the lists above are current):
+- ~~Notifications module~~ built day 15 (in-app + preferences); push device tokens added day 30.
+- ~~Calendar create/edit/delete UI~~ built day 17.
+- ~~Revisit `Modules/inbox#getChat`~~ real paged thread since day 12.
+- ~~Home, Ads, Analytics with zero backend~~ moved onto real routes days 13–14.
