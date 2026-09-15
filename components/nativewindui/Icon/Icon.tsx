@@ -7,10 +7,19 @@ import {
 
 import type { IconProps } from './types';
 
+import { useIsRTL } from '@/lib/rtl';
 import { useColorScheme } from '@/lib/useColorScheme';
 
+// Material glyphs don't mirror in RTL the way SF Symbols do on iOS.
+const RTL_MIRROR: Record<string, string> = {
+  'chevron.left': 'chevron.right',
+  'chevron.right': 'chevron.left',
+  'arrow.left': 'arrow.right',
+  'arrow.right': 'arrow.left',
+};
+
 function Icon({
-  name,
+  name: rawName,
   materialCommunityIcon,
   materialIcon,
   sfSymbol: _sfSymbol,
@@ -18,6 +27,8 @@ function Icon({
   ...props
 }: IconProps) {
   const { colors } = useColorScheme();
+  const isRTL = useIsRTL();
+  const name = (isRTL && rawName ? (RTL_MIRROR[rawName] ?? rawName) : rawName) as typeof rawName;
   const defaultColor = colors.foreground;
 
   if (materialCommunityIcon) {

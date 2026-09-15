@@ -16,4 +16,10 @@ export interface CalendarEvent {
   time?: string | null;
   brideName?: string | null;
   city?: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  notes: string | null;
+  /** Written by a confirmed meeting and owned by its conversation — not editable here. */
+  isDerived: boolean;
+  conversationId: string | null;
 }

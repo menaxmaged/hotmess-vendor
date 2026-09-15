@@ -1,0 +1,70 @@
+import type en from "../en/common";
+import type { Translation } from "../types";
+
+const common: Translation<typeof en> = {
+  actions: {
+    cancel: "إلغاء",
+    save: "حفظ",
+    saving: "جارٍ الحفظ…",
+    continue: "متابعة",
+    back: "رجوع",
+    ok: "حسناً",
+    close: "إغلاق",
+    retry: "حاول مرة أخرى",
+    delete: "حذف",
+    edit: "تعديل",
+    sending: "جارٍ الإرسال…",
+    loading: "جارٍ التحميل…",
+  },
+  tabs: {
+    home: "الرئيسية",
+    inbox: "الرسائل",
+    calendar: "التقويم",
+    analytics: "الإحصائيات",
+    more: "المزيد",
+  },
+  badges: {
+    premium: "بريميوم",
+    free: "مجاني",
+  },
+  time: {
+    now: "الآن",
+    minutesShort_zero: "{{count}} د",
+    minutesShort_one: "{{count}} د",
+    minutesShort_two: "{{count}} د",
+    minutesShort_few: "{{count}} د",
+    minutesShort_many: "{{count}} د",
+    minutesShort_other: "{{count}} د",
+    hoursShort_zero: "{{count}} س",
+    hoursShort_one: "{{count}} س",
+    hoursShort_two: "{{count}} س",
+    hoursShort_few: "{{count}} س",
+    hoursShort_many: "{{count}} س",
+    hoursShort_other: "{{count}} س",
+    daysShort_zero: "{{count}} ي",
+    daysShort_one: "{{count}} ي",
+    daysShort_two: "{{count}} ي",
+    daysShort_few: "{{count}} ي",
+    daysShort_many: "{{count}} ي",
+    daysShort_other: "{{count}} ي",
+  },
+  errors: {
+    invalidCredentials: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    badRequest: "طلب غير صالح. يرجى مراجعة البيانات.",
+    forbidden: "غير مسموح بالوصول.",
+    notFound: "العنصر غير موجود.",
+    conflict: "البريد الإلكتروني مستخدم بالفعل. جرّب تسجيل الدخول أو استخدم بريداً آخر.",
+    rateLimited: "طلبات كثيرة جداً. يرجى المحاولة لاحقاً.",
+    server: "خطأ في الخادم. يرجى المحاولة لاحقاً.",
+    timeout: "انتهت مهلة الطلب. تحقق من اتصالك وحاول مرة أخرى.",
+    unreachable: "تعذّر الاتصال بالخادم. تحقق من اتصالك.",
+    unknown: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    couldNotSave: "تعذّر الحفظ",
+  },
+  language: {
+    restartTitle: "أعد التشغيل لإتمام التغيير",
+    restartBody: "أغلق التطبيق وافتحه من جديد لتغيير اتجاه الواجهة.",
+  },
+};
+
+export default common;

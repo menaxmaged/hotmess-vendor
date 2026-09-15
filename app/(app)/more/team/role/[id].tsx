@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
@@ -22,6 +23,7 @@ import type {
 
 export default function RoleEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation('studio');
   const isNew = id === 'new';
 
   const { data: roles, isLoading } = useRoles();
@@ -38,7 +40,7 @@ export default function RoleEditorScreen() {
   if (!isNew && !existingRole) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-6">
-        <Text color="tertiary">Role not found.</Text>
+        <Text color="tertiary">{t('role.notFound')}</Text>
       </View>
     );
   }
@@ -48,6 +50,7 @@ export default function RoleEditorScreen() {
 
 function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole: Role | null }) {
   const router = useRouter();
+  const { t } = useTranslation(['studio', 'common']);
   const isNew = roleId === null;
 
   const createRole = useCreateRole();
@@ -80,7 +83,7 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
   const onSave = async () => {
     setError(null);
     if (!name.trim()) {
-      setError('Give this role a name.');
+      setError(t('role.nameRequired'));
       return;
     }
     try {
@@ -97,10 +100,10 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
 
   const onDelete = () => {
     if (!roleId) return;
-    Alert.alert('Delete role', `Delete "${initialRole?.name}"? Members will need to be reassigned.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('role.deleteTitle'), t('role.deleteBody', { name: initialRole?.name ?? '' }), [
+      { text: t('common:actions.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common:actions.delete'),
         style: 'destructive',
         onPress: async () => {
           await deleteRole.mutateAsync(roleId);
@@ -112,76 +115,76 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
 
   return (
     <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-5 p-4">
-      <Stack.Screen options={{ title: isNew ? 'New Role' : initialRole?.name }} />
+      <Stack.Screen options={{ title: isNew ? t('role.newTitle') : initialRole?.name }} />
 
       <View className="gap-1.5">
         <Text variant="caption1" color="tertiary">
-          ROLE NAME
+          {t('role.name')}
         </Text>
         <TextInput
           value={name}
           onChangeText={setName}
           editable={!isBuiltIn}
-          placeholder="e.g. Sales"
+          placeholder={t('role.namePlaceholder')}
           className="rounded-xl border border-border bg-card px-4 py-3 text-foreground"
         />
         {isBuiltIn ? (
           <Text variant="caption2" color="tertiary">
-            Built-in roles can&apos;t be renamed or have their permissions edited.
+            {t('role.builtInNote')}
           </Text>
         ) : null}
       </View>
 
-      <PermissionGroup title="Inbox">
+      <PermissionGroup title={t('role.groups.inbox')}>
         <SegmentedChoice<InboxAccess>
           value={permissions.inbox}
           disabled={isBuiltIn}
           options={[
-            { key: 'none', label: 'No access' },
-            { key: 'assigned', label: 'Assigned chats' },
-            { key: 'all', label: 'All chats' },
+            { key: 'none', label: t('role.access.none') },
+            { key: 'assigned', label: t('role.access.assigned') },
+            { key: 'all', label: t('role.access.all') },
           ]}
           onChange={(v) => setPerm('inbox', v)}
         />
       </PermissionGroup>
 
-      <PermissionGroup title="Calendar">
+      <PermissionGroup title={t('role.groups.calendar')}>
         <SegmentedChoice<CalendarAccess>
           value={permissions.calendar}
           disabled={isBuiltIn}
           options={[
-            { key: 'none', label: 'No access' },
-            { key: 'view', label: 'View only' },
-            { key: 'full', label: 'Full access' },
+            { key: 'none', label: t('role.access.none') },
+            { key: 'view', label: t('role.access.view') },
+            { key: 'full', label: t('role.access.full') },
           ]}
           onChange={(v) => setPerm('calendar', v)}
         />
       </PermissionGroup>
 
-      <PermissionGroup title="Finance">
+      <PermissionGroup title={t('role.groups.finance')}>
         <SegmentedChoice<FinanceAccess>
           value={permissions.finance}
           disabled={isBuiltIn}
           options={[
-            { key: 'none', label: 'No access' },
-            { key: 'quotes', label: 'Quotes only' },
-            { key: 'payments_view', label: 'Payments (view)' },
-            { key: 'payments_edit', label: 'Payments (edit)' },
-            { key: 'full', label: 'Full access' },
+            { key: 'none', label: t('role.access.none') },
+            { key: 'quotes', label: t('role.access.quotes') },
+            { key: 'payments_view', label: t('role.access.payments_view') },
+            { key: 'payments_edit', label: t('role.access.payments_edit') },
+            { key: 'full', label: t('role.access.full') },
           ]}
           onChange={(v) => setPerm('finance', v)}
         />
       </PermissionGroup>
 
-      <PermissionGroup title="Studio">
+      <PermissionGroup title={t('role.groups.studio')}>
         <ToggleRow
-          label="Profile edit"
+          label={t('role.perms.profileEdit')}
           value={permissions.studio.includes('profile_edit')}
           disabled={isBuiltIn}
           onChange={() => toggleListPerm<StudioPermission>('studio', 'profile_edit')}
         />
         <ToggleRow
-          label="Automation edit"
+          label={t('role.perms.automationEdit')}
           value={permissions.studio.includes('automation_edit')}
           disabled={isBuiltIn}
           onChange={() => toggleListPerm<StudioPermission>('studio', 'automation_edit')}
@@ -189,15 +192,15 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
         />
       </PermissionGroup>
 
-      <PermissionGroup title="Growth">
+      <PermissionGroup title={t('role.groups.growth')}>
         <ToggleRow
-          label="Ads access"
+          label={t('role.perms.ads')}
           value={permissions.growth.includes('ads')}
           disabled={isBuiltIn}
           onChange={() => toggleListPerm<GrowthPermission>('growth', 'ads')}
         />
         <ToggleRow
-          label="Analytics access"
+          label={t('role.perms.analytics')}
           value={permissions.growth.includes('analytics')}
           disabled={isBuiltIn}
           onChange={() => toggleListPerm<GrowthPermission>('growth', 'analytics')}
@@ -205,9 +208,9 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
         />
       </PermissionGroup>
 
-      <PermissionGroup title="Admin">
+      <PermissionGroup title={t('role.groups.admin')}>
         <ToggleRow
-          label="Team management"
+          label={t('role.perms.team')}
           value={permissions.admin}
           disabled={isBuiltIn}
           onChange={(v) => setPerm('admin', v)}
@@ -223,14 +226,14 @@ function RoleForm({ roleId, initialRole }: { roleId: string | null; initialRole:
 
       {!isBuiltIn ? (
         <Button onPress={onSave} disabled={isSaving}>
-          <Text>{isSaving ? 'Saving…' : 'Save role'}</Text>
+          <Text>{isSaving ? t('saving') : t('role.save')}</Text>
         </Button>
       ) : null}
 
       {!isNew && !isBuiltIn ? (
         <Pressable onPress={onDelete} className="items-center py-2">
           <Text variant="footnote" className="text-destructive">
-            Delete role
+            {t('role.delete')}
           </Text>
         </Pressable>
       ) : null}

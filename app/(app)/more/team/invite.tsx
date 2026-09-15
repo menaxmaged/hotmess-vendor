@@ -1,6 +1,7 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
@@ -12,13 +13,11 @@ import { useRoles } from '@/Modules/roles/hooks';
 import { useInviteMember } from '@/Modules/team/hooks';
 import type { InviteDelivery } from '@/Modules/team/types';
 
-const DELIVERY_OPTIONS: { key: InviteDelivery; label: string }[] = [
-  { key: 'email', label: 'Email' },
-  { key: 'whatsapp', label: 'WhatsApp' },
-];
+const DELIVERY_OPTIONS: InviteDelivery[] = ['email', 'whatsapp'];
 
 export default function InviteMemberScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['studio', 'common']);
   const { colors } = useColorScheme();
   const { showActionSheetWithOptions } = useActionSheet();
   const { data: roles } = useRoles();
@@ -34,9 +33,9 @@ export default function InviteMemberScreen() {
 
   const openRolePicker = () => {
     const list = roles ?? [];
-    const options = [...list.map((r) => r.name), 'Cancel'];
+    const options = [...list.map((r) => r.name), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: 'Assign role' },
+      { options, cancelButtonIndex: options.length - 1, title: t('invite.assignRole') },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
         setRoleId(list[index]!.id);
@@ -47,7 +46,7 @@ export default function InviteMemberScreen() {
   const onSubmit = async () => {
     setError(null);
     if (delivery === 'whatsapp' && !phone.trim()) {
-      setError('Enter a WhatsApp number.');
+      setError(t('invite.enterWhatsapp'));
       return;
     }
     try {
@@ -66,10 +65,10 @@ export default function InviteMemberScreen() {
   return (
     <KeyboardAwareScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="gap-5 p-4">
+      contentContainerStyle={{ gap: 20, padding: 16 }}>
       <View className="gap-1.5">
         <Text variant="caption1" color="tertiary">
-          EMAIL
+          {t('invite.email')}
         </Text>
         <TextInput
           value={email}
@@ -84,33 +83,33 @@ export default function InviteMemberScreen() {
 
       <View className="gap-1.5">
         <Text variant="caption1" color="tertiary">
-          ROLE
+          {t('invite.role')}
         </Text>
         <Pressable
           onPress={openRolePicker}
           className="flex-row items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
           <Text className={selectedRole ? undefined : 'text-muted-foreground'}>
-            {selectedRole?.name ?? 'Choose a role'}
+            {selectedRole?.name ?? t('invite.chooseRole')}
           </Text>
         </Pressable>
       </View>
 
       <View className="gap-1.5">
         <Text variant="caption1" color="tertiary">
-          DELIVERY
+          {t('invite.delivery')}
         </Text>
         <View className="flex-row rounded-xl bg-muted p-1">
-          {DELIVERY_OPTIONS.map((opt) => {
-            const selected = opt.key === delivery;
+          {DELIVERY_OPTIONS.map((option) => {
+            const selected = option === delivery;
             return (
               <Pressable
-                key={opt.key}
-                onPress={() => setDelivery(opt.key)}
+                key={option}
+                onPress={() => setDelivery(option)}
                 className={`flex-1 items-center rounded-lg py-2 ${selected ? 'bg-card' : ''}`}>
                 <Text
                   variant="footnote"
                   className={selected ? 'font-semibold' : 'text-muted-foreground'}>
-                  {opt.label}
+                  {t(`invite.deliveryOptions.${option}`)}
                 </Text>
               </Pressable>
             );
@@ -121,7 +120,7 @@ export default function InviteMemberScreen() {
       {delivery === 'whatsapp' ? (
         <View className="gap-1.5">
           <Text variant="caption1" color="tertiary">
-            WHATSAPP NUMBER
+            {t('invite.whatsappNumber')}
           </Text>
           <TextInput
             value={phone}
@@ -132,8 +131,7 @@ export default function InviteMemberScreen() {
             className="rounded-xl border border-border bg-card px-4 py-3 text-foreground"
           />
           <Text variant="caption2" color="tertiary">
-            WhatsApp delivery isn&apos;t live yet on the backend — the invite is still created,
-            just not sent this way.
+            {t('invite.whatsappNote')}
           </Text>
         </View>
       ) : null}
@@ -151,7 +149,7 @@ export default function InviteMemberScreen() {
           (delivery === 'whatsapp' && !phone.trim()) ||
           inviteMember.isPending
         }>
-        <Text>{inviteMember.isPending ? 'Sending invite…' : 'Send invite'}</Text>
+        <Text>{inviteMember.isPending ? t('invite.sending') : t('invite.send')}</Text>
       </Button>
     </KeyboardAwareScrollView>
   );

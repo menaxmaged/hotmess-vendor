@@ -4,7 +4,6 @@
  */
 
 import { api, tokenManager } from "@/lib/api-client";
-import { mockAuthApi } from "./mock";
 import type { LoginCredentials, LoginResponse, SignupSchema, User, VendorSignupRequest } from "./types";
 
 const unwrapPayload = <T>(payload: unknown, key?: string): T => {
@@ -25,22 +24,35 @@ const unwrapPayload = <T>(payload: unknown, key?: string): T => {
   return payload as T;
 };
 
-// login/checkAuth/logout/register/getSignupSchema call the real backend
-// unconditionally. Everything else below stays on mockAuthApi — the real
-// backend still has no matching endpoint for a vendor account to use:
-//   - There are no OTP verify/resend endpoints — only a 3-step forgot-password
-//     flow (forgot-password -> verify-reset-code -> reset-password), which is
-//     a different concept from this module's current resetPassword(currentPw,
-//     newPw) and has no UI screen calling it anyway.
-//   - There is no authenticated change-password endpoint.
-//   - There is no vendor profile-update endpoint; PATCH /v1/users/me is
-//     bride-shaped (name/partnerName/phone/localePref/defaultMarketId) and
-//     has no avatar/dateOfBirth/gender fields this module sends.
+// Every method is a real endpoint. There is no authenticated change-password
+// route: changing a password while signed in goes through the same emailed
+// code flow (forgot -> verify -> reset), which ends every session. Profile
+// fields (name/phone/locale) live in Modules/account (PATCH /users/me).
 const liveAuthApi = {
-  verifyOTP: mockAuthApi.verifyOTP,
-  resendOTP: mockAuthApi.resendOTP,
-  resetPassword: mockAuthApi.resetPassword,
-  updateProfile: mockAuthApi.updateProfile,
+  // Always 204, whether or not the address has an account.
+  forgotPassword: async (email: string): Promise<void> => {
+    await api.post("/auth/forgot-password", { email });
+  },
+
+  // Shares forgot-password's rate-limit budget; invalidates the previous code.
+  resendResetCode: async (email: string): Promise<void> => {
+    await api.post("/auth/resend-reset-code", { email });
+  },
+
+  // Spends the code. Five wrong codes destroy it; unknown/wrong/expired are one 401.
+  verifyResetCode: async (
+    email: string,
+    code: string,
+  ): Promise<{ resetToken: string; expiresAt: string }> => {
+    const response = await api.post<unknown>("/auth/verify-reset-code", { email, code });
+    return unwrapPayload<{ resetToken: string; expiresAt: string }>(response.data);
+  },
+
+  // `token` is verify-reset-code's resetToken, not the emailed code. Single-use;
+  // bumps tokenVersion, so every open session ends.
+  resetPassword: async (token: string, password: string): Promise<void> => {
+    await api.post("/auth/reset-password", { token, password });
+  },
 
   // POST /vendor/signup creates the studio and signs the caller in, single
   // call — no separate login round-trip needed afterward.

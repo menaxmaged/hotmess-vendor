@@ -18,6 +18,7 @@ import type {
 export const profileKeys = {
   all: ["profile"] as const,
   overview: () => [...profileKeys.all, "overview"] as const,
+  core: () => [...profileKeys.all, "core"] as const,
   categoryOptions: () => [...profileKeys.all, "category-options"] as const,
   preview: () => [...profileKeys.all, "preview"] as const,
 };
@@ -29,6 +30,19 @@ export const useProfileOverview = () => {
   });
 };
 
+/**
+ * The studio's listing status. Anything but `active` means brides can't see the
+ * profile (and for `suspended`, every thread is read-only) — screens explain it.
+ */
+export const useStudioStatus = () => {
+  const { data } = useQuery({
+    queryKey: profileKeys.core(),
+    queryFn: profileApi.getCore,
+    staleTime: 1000 * 60 * 5,
+  });
+  return data?.status ?? "active";
+};
+
 export const useCategoryOptions = () => {
   return useQuery({
     queryKey: profileKeys.categoryOptions(),
@@ -37,12 +51,12 @@ export const useCategoryOptions = () => {
   });
 };
 
-// No screen consumes this yet — exposed for a later "preview as bride" screen.
-export const useProfilePreview = () => {
+// "Exactly what brides see" — same projection as GET /vendors/{id}.
+export const useProfilePreview = (enabled = true) => {
   return useQuery({
     queryKey: profileKeys.preview(),
     queryFn: profileApi.getPreview,
-    enabled: false,
+    enabled,
   });
 };
 

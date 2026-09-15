@@ -1,4 +1,5 @@
 import '../global.css';
+import '@/lib/i18n';
 import 'expo-dev-client';
 import { ThemeProvider as NavThemeProvider } from 'expo-router/react-navigation';
 
@@ -20,6 +21,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { AuthProvider, useAuth } from '@/Modules/auth/context';
 import { queryClient } from '@/lib/query-client';
+import { installWebAlert } from '@/lib/web-alert';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { NAV_THEME } from '@/theme';
 
@@ -27,6 +29,8 @@ export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
+
+installWebAlert();
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();

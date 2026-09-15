@@ -1,0 +1,55 @@
+const common = {
+  actions: {
+    cancel: "Cancel",
+    save: "Save",
+    saving: "Saving…",
+    continue: "Continue",
+    back: "Back",
+    ok: "OK",
+    close: "Close",
+    retry: "Try again",
+    delete: "Delete",
+    edit: "Edit",
+    sending: "Sending…",
+    loading: "Loading…",
+  },
+  tabs: {
+    home: "Home",
+    inbox: "Inbox",
+    calendar: "Calendar",
+    analytics: "Analytics",
+    more: "More",
+  },
+  badges: {
+    premium: "Premium",
+    free: "Free",
+  },
+  time: {
+    now: "now",
+    minutesShort_one: "{{count}}m",
+    minutesShort_other: "{{count}}m",
+    hoursShort_one: "{{count}}h",
+    hoursShort_other: "{{count}}h",
+    daysShort_one: "{{count}}d",
+    daysShort_other: "{{count}}d",
+  },
+  errors: {
+    invalidCredentials: "Invalid email or password",
+    badRequest: "Invalid request. Please check your input.",
+    forbidden: "Access denied.",
+    notFound: "Resource not found.",
+    conflict: "Email already exists. Please try logging in or use a different email.",
+    rateLimited: "Too many requests. Please try again later.",
+    server: "Server error. Please try again later.",
+    timeout: "Request timeout. Please check your connection and try again.",
+    unreachable: "Cannot connect to server. Please check your connection.",
+    unknown: "Something went wrong. Please try again.",
+    couldNotSave: "Could not save",
+  },
+  language: {
+    restartTitle: "Restart to finish",
+    restartBody: "Close and reopen the app to switch the layout direction.",
+  },
+};
+
+export default common;

@@ -1,5 +1,8 @@
+import type { Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Pressable, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +14,8 @@ import { useColorScheme } from '@/lib/useColorScheme';
 const DISPLAY = 'font-display';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { t } = useTranslation('auth');
   const { signIn } = useAuth();
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -36,28 +41,28 @@ export default function LoginScreen() {
   return (
     <KeyboardAwareScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="flex-grow"
+      contentContainerStyle={{ flexGrow: 1 }}
       bottomOffset={24}>
       {/* Pink brand header */}
       <View
         className="items-center justify-center bg-secondary px-6 pb-12"
         style={{ paddingTop: insets.top + 48 }}>
         <Text className={`${DISPLAY} text-white`} style={{ fontSize: 40, lineHeight: 44 }}>
-          welcome{'\n'}back<Text className={`${DISPLAY} text-primary`} style={{ fontSize: 40 }}>.</Text>
+          {t('login.hero')}<Text className={`${DISPLAY} text-primary`} style={{ fontSize: 40 }}>.</Text>
         </Text>
       </View>
 
       {/* Form body */}
       <View className="flex-1 gap-5 bg-background px-6 pt-10">
         <Text className={`${DISPLAY} text-foreground`} style={{ fontSize: 26 }}>
-          sign in to your studio
+          {t('login.title')}
         </Text>
 
         <View className="gap-3">
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="Email"
+            placeholder={t('login.email')}
             placeholderTextColor={colors.grey}
             autoCapitalize="none"
             autoComplete="email"
@@ -67,7 +72,7 @@ export default function LoginScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder={t('login.password')}
             placeholderTextColor={colors.grey}
             secureTextEntry
             autoCapitalize="none"
@@ -75,9 +80,15 @@ export default function LoginScreen() {
           />
         </View>
 
-        <Pressable className="self-end" onPress={() => {}}>
+        <Pressable
+          className="self-end"
+          onPress={() =>
+            router.push(
+              `/(auth)/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ''}` as Href,
+            )
+          }>
           <Text variant="footnote" className="font-semibold text-foreground">
-            Forgot password?
+            {t('login.forgot')}
           </Text>
         </Pressable>
 
@@ -92,17 +103,15 @@ export default function LoginScreen() {
           disabled={!canSubmit}
           className={`items-center rounded-xl bg-primary py-4 ${canSubmit ? 'active:opacity-80' : 'opacity-50'}`}>
           <Text className="text-white" style={{ fontSize: 17, fontWeight: '700' }}>
-            {isSubmitting ? 'Signing in…' : 'Continue'}
+            {isSubmitting ? t('login.submitting') : t('login.submit')}
           </Text>
         </Pressable>
 
-        <Pressable
-          className="mt-2 items-center"
-          onPress={() => Linking.openURL('https://hotmessbride.com')}>
+        <Pressable className="mt-2 items-center" onPress={() => router.push('/(auth)/signup' as Href)}>
           <Text variant="footnote" color="tertiary">
-            Don’t have an account? Onboard on{' '}
+            {t('login.noAccount')}{' '}
             <Text variant="footnote" className="font-semibold text-secondary underline">
-              hotmessbride.com
+              {t('login.createStudio')}
             </Text>
           </Text>
         </Pressable>

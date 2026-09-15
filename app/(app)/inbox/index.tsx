@@ -1,6 +1,7 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, RefreshControl, TextInput, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
@@ -8,6 +9,7 @@ import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
 import { InitialsAvatar } from '@/components/InitialsAvatar';
+import { StudioStatusBanner } from '@/components/StudioStatusBanner';
 import { getErrorMessage } from '@/lib/api-client';
 import { formatRelativeTime } from '@/lib/format';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -21,19 +23,15 @@ import {
     useTogglePin,
     useUpdateChatStatus,
 } from '@/Modules/inbox/hooks';
-import { STATUS_META, STATUS_ORDER } from '@/Modules/inbox/status';
+import { STATUS_ORDER } from '@/Modules/inbox/status';
 import type { AssigneeBucket, AssigneeFilter, ChatSummary, LeadStatus, SortOption } from '@/Modules/inbox/types';
 import { useTeamOverview } from '@/Modules/team/hooks';
 
-const SORT_LABELS: Record<SortOption, string> = {
-  recent: 'Most recent',
-  unread: 'Unread first',
-  follow_up: 'Follow-up due',
-  amount: 'Amount high→low',
-};
+const SORT_OPTIONS: SortOption[] = ['recent', 'unread', 'follow_up', 'amount'];
 
 export default function InboxListScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['inbox', 'common']);
   const params = useLocalSearchParams<{ assignee?: string }>();
   const { colors } = useColorScheme();
   const { showActionSheetWithOptions } = useActionSheet();
@@ -73,25 +71,25 @@ export default function InboxListScreen() {
   // member" the old client-side bucket builder had no way to resolve.
   const buckets: AssigneeBucket[] = counts
     ? [
-        { id: 'all', label: 'All', count: counts.total },
-        { id: 'me', label: 'Me', count: myMemberId ? (counts.byAssignee[myMemberId] ?? 0) : 0 },
+        { id: 'all', label: t('list.all'), count: counts.total },
+        { id: 'me', label: t('list.me'), count: myMemberId ? (counts.byAssignee[myMemberId] ?? 0) : 0 },
         ...activeMembers
           .filter((m) => m.id !== myMemberId && (counts.byAssignee[m.id] ?? 0) > 0)
           .map((m) => ({ id: m.id, label: m.name, count: counts.byAssignee[m.id] ?? 0 })),
-        { id: 'unassigned', label: 'Unassigned', count: counts.byAssignee.unassigned ?? 0 },
+        { id: 'unassigned', label: t('list.unassigned'), count: counts.byAssignee.unassigned ?? 0 },
       ]
     : [
-        { id: 'all' as AssigneeFilter, label: 'All', count: 0 },
-        { id: 'me' as AssigneeFilter, label: 'Me', count: 0 },
-        { id: 'unassigned' as AssigneeFilter, label: 'Unassigned', count: 0 },
+        { id: 'all' as AssigneeFilter, label: t('list.all'), count: 0 },
+        { id: 'me' as AssigneeFilter, label: t('list.me'), count: 0 },
+        { id: 'unassigned' as AssigneeFilter, label: t('list.unassigned'), count: 0 },
       ];
 
   const hasActiveFilter = sort !== 'recent' || !!status;
 
   const openStatusSheet = (chat: ChatSummary) => {
-    const options = [...STATUS_ORDER.map((s) => STATUS_META[s].label), 'Cancel'];
+    const options = [...STATUS_ORDER.map((s) => t(`status.${s}`)), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: 'Change status' },
+      { options, cancelButtonIndex: options.length - 1, title: t('list.changeStatus') },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
         updateStatus.mutate({ chatId: chat.id, status: STATUS_ORDER[index] });
@@ -103,9 +101,9 @@ export default function InboxListScreen() {
     // Full active roster, not derived from `buckets` — a member with zero
     // currently-assigned leads has no bucket (buckets only show assignees
     // that already occur), but must still be a valid assign target.
-    const options = ['Unassign', ...activeMembers.map((m) => m.name), 'Cancel'];
+    const options = [t('list.unassign'), ...activeMembers.map((m) => m.name), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: 'Assign to' },
+      { options, cancelButtonIndex: options.length - 1, title: t('list.assignTo') },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
         const assigneeId = index === 0 ? null : activeMembers[index - 1]!.id;
@@ -115,14 +113,14 @@ export default function InboxListScreen() {
   };
 
   const openSortFilterSheet = () => {
-    const sortOptions = Object.values(SORT_LABELS);
-    const options = [...sortOptions, 'Filter by status…', 'Clear all', 'Cancel'];
+    const sortOptions = SORT_OPTIONS.map((o) => t(`sort.${o}`));
+    const options = [...sortOptions, t('list.filterByStatusEllipsis'), t('list.clearAll'), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: 'Sort & filter' },
+      { options, cancelButtonIndex: options.length - 1, title: t('list.sortFilter') },
       (index) => {
         if (index === undefined) return;
         if (index < sortOptions.length) {
-          setSort(Object.keys(SORT_LABELS)[index] as SortOption);
+          setSort(SORT_OPTIONS[index]!);
           return;
         }
         if (index === sortOptions.length) {
@@ -139,9 +137,9 @@ export default function InboxListScreen() {
   };
 
   const openStatusFilterSheet = () => {
-    const options = ['All statuses', ...STATUS_ORDER.map((s) => STATUS_META[s].label), 'Cancel'];
+    const options = [t('list.allStatuses'), ...STATUS_ORDER.map((s) => t(`status.${s}`)), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: 'Filter by status' },
+      { options, cancelButtonIndex: options.length - 1, title: t('list.filterByStatus') },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
         setStatus(index === 0 ? undefined : STATUS_ORDER[index - 1]);
@@ -152,12 +150,13 @@ export default function InboxListScreen() {
   return (
     <View className="flex-1 bg-background">
       <View className="gap-3 border-b border-border px-4 pb-3 pt-2">
+        <StudioStatusBanner />
         <View className="flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
           <Icon name="magnifyingglass" size={18} color={colors.grey} />
           <TextInput
             value={searchInput}
             onChangeText={setSearchInput}
-            placeholder="Search brides, occasion, city…"
+            placeholder={t('list.searchPlaceholder')}
             placeholderTextColor={colors.grey}
             className="h-10 flex-1 text-foreground"
           />
@@ -201,7 +200,7 @@ export default function InboxListScreen() {
           }`}>
           <Icon name="line.3.horizontal" size={16} color={colors.foreground} />
           <Text variant="caption1" className="font-medium">
-            Sort & filter
+            {t('list.sortFilter')}
           </Text>
           {hasActiveFilter ? <View className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
         </Pressable>
@@ -217,7 +216,7 @@ export default function InboxListScreen() {
             {getErrorMessage(error)}
           </Text>
           <Pressable onPress={() => refetch()}>
-            <Text className="text-primary">Try again</Text>
+            <Text className="text-primary">{t('common:actions.retry')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -231,10 +230,10 @@ export default function InboxListScreen() {
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center gap-1 p-12">
               <Text variant="subhead" className="text-center font-medium">
-                No chats match your filters
+                {t('list.emptyTitle')}
               </Text>
               <Text variant="footnote" color="tertiary" className="text-center">
-                Try clearing your filters or search.
+                {t('list.emptyBody')}
               </Text>
             </View>
           }
@@ -271,14 +270,15 @@ function ChatRow({
   onToggleArchive: () => void;
   onChangeStatus: () => void;
 }) {
+  const { t } = useTranslation('inbox');
   return (
     <Swipeable
       renderRightActions={() => (
         <View className="flex-row">
-          <SwipeAction label={chat.pinned ? 'Unpin' : 'Pin'} onPress={onTogglePin} className="bg-amber-500" />
-          <SwipeAction label="Assign" onPress={onAssign} className="bg-blue-500" />
+          <SwipeAction label={chat.pinned ? t('list.unpin') : t('list.pin')} onPress={onTogglePin} className="bg-amber-500" />
+          <SwipeAction label={t('list.assign')} onPress={onAssign} className="bg-blue-500" />
           <SwipeAction
-            label={chat.archived ? 'Unarchive' : 'Archive'}
+            label={chat.archived ? t('list.unarchive') : t('list.archive')}
             onPress={onToggleArchive}
             className="bg-neutral-500"
           />
@@ -316,7 +316,7 @@ function ChatRow({
               <View className="flex-row items-center gap-1.5">
                 {chat.followUpDate ? (
                   <Text variant="caption2" className="text-amber-600 dark:text-amber-400">
-                    {`Follow up ${formatRelativeTime(chat.followUpDate)}`}
+                    {t('list.followUp', { when: formatRelativeTime(chat.followUpDate) })}
                   </Text>
                 ) : null}
                 {chat.assignee ? <InitialsAvatar name={chat.assignee.name} size={20} /> : null}

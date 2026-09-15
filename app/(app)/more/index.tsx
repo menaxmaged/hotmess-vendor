@@ -1,12 +1,15 @@
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import type { SfSymbols } from 'rn-icon-mapper';
 
 import { InitialsAvatar } from '@/components/InitialsAvatar';
+import { StudioStatusBanner } from '@/components/StudioStatusBanner';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
 import { useAuth } from '@/Modules/auth/context';
+import { useNotificationUnreadCount } from '@/Modules/notifications/hooks';
 import { useSubscription } from '@/Modules/subscription/hooks';
 import { useColorScheme } from '@/lib/useColorScheme';
 
@@ -16,13 +19,17 @@ interface MenuItem {
   label: string;
   description: string;
   badge?: string;
+  /** Amber badge (upsell / Premium) rather than the neutral one. */
+  highlight?: boolean;
 }
 
 export default function MoreScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['more', 'common']);
   const { colors } = useColorScheme();
   const { user, signOut } = useAuth();
   const { data: subscription } = useSubscription();
+  const { data: unreadNotifications = 0 } = useNotificationUnreadCount();
 
   const isPremium = subscription?.isPremium ?? false;
 
@@ -30,28 +37,30 @@ export default function MoreScreen() {
     {
       href: '/(app)/more/profile',
       icon: 'person.circle.fill',
-      label: 'Profile & Settings',
-      description: 'Business info, categories, booking rules, Instagram, packages',
+      label: t('menu.profile.label'),
+      description: t('menu.profile.description'),
     },
     {
       href: '/(app)/more/automation',
       icon: 'bolt.fill',
-      label: 'Automation',
-      description: 'Welcome flow, intake questions, auto-reply, lead auto-assign',
+      label: t('menu.automation.label'),
+      description: t('menu.automation.description'),
     },
     {
       href: '/(app)/more/team',
       icon: 'person.2.fill',
-      label: 'Team & Roles',
-      description: 'Invite members, manage permissions',
-      badge: isPremium ? undefined : 'Premium',
+      label: t('menu.team.label'),
+      description: t('menu.team.description'),
+      badge: isPremium ? undefined : t('common:badges.premium'),
+      highlight: true,
     },
     {
       href: '/(app)/more/saved-replies' as Href,
       icon: 'quote.bubble.fill',
-      label: 'Saved Replies',
-      description: 'Quick-insert replies for common questions',
-      badge: isPremium ? undefined : 'Premium',
+      label: t('menu.savedReplies.label'),
+      description: t('menu.savedReplies.description'),
+      badge: isPremium ? undefined : t('common:badges.premium'),
+      highlight: true,
     },
   ];
 
@@ -59,37 +68,46 @@ export default function MoreScreen() {
     {
       href: '/(app)/more/ads',
       icon: 'megaphone.fill',
-      label: 'Sponsored Ads',
-      description: 'Buy placements, manage campaigns',
+      label: t('menu.ads.label'),
+      description: t('menu.ads.description'),
     },
     {
       href: '/(app)/more/premium',
       icon: 'star.fill',
-      label: 'Subscription & Premium',
-      description: 'Manage your plan and billing',
-      badge: isPremium ? 'Premium' : 'Free',
+      label: t('menu.premium.label'),
+      description: t('menu.premium.description'),
+      badge: isPremium ? t('common:badges.premium') : t('common:badges.free'),
+      highlight: isPremium,
     },
   ];
 
   const accountItems: MenuItem[] = [
     {
+      href: '/(app)/more/notifications' as Href,
+      icon: 'bell.fill',
+      label: t('menu.notifications.label'),
+      description: t('menu.notifications.description'),
+      badge: unreadNotifications > 0 ? String(unreadNotifications) : undefined,
+    },
+    {
       href: '/(app)/more/settings',
       icon: 'gearshape.fill',
-      label: 'Settings',
-      description: 'Language, notifications, security',
+      label: t('menu.settings.label'),
+      description: t('menu.settings.description'),
     },
   ];
 
   return (
     <View className="flex-1 bg-background">
       <View className="flex-1 gap-6 p-4">
+        <StudioStatusBanner />
         <Pressable
           onPress={() => router.push('/(app)/more/profile')}
           className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-4">
           <InitialsAvatar name={user?.name ?? 'Studio'} size={48} />
           <View className="flex-1">
             <Text variant="subhead" className="font-semibold" numberOfLines={1}>
-              {user?.name ?? 'Your studio'}
+              {user?.name ?? t('menu.yourStudio')}
             </Text>
             <Text variant="caption1" color="tertiary" numberOfLines={1}>
               {user?.email}
@@ -98,15 +116,15 @@ export default function MoreScreen() {
           <Icon name="chevron.right" size={16} color={colors.grey} />
         </Pressable>
 
-        <MenuSection title="Studio" items={studioItems} onPress={(href) => router.push(href)} />
-        <MenuSection title="Growth" items={growthItems} onPress={(href) => router.push(href)} />
-        <MenuSection title="Account" items={accountItems} onPress={(href) => router.push(href)} />
+        <MenuSection title={t('menu.sections.studio')} items={studioItems} onPress={(href) => router.push(href)} />
+        <MenuSection title={t('menu.sections.growth')} items={growthItems} onPress={(href) => router.push(href)} />
+        <MenuSection title={t('menu.sections.account')} items={accountItems} onPress={(href) => router.push(href)} />
 
         <View className="mt-auto gap-2">
           <Pressable
             onPress={signOut}
             className="items-center rounded-xl border border-border bg-card py-3">
-            <Text className="font-medium text-destructive">Sign out</Text>
+            <Text className="font-medium text-destructive">{t('menu.signOut')}</Text>
           </Pressable>
         </View>
       </View>
@@ -152,14 +170,14 @@ function MenuSection({
             {item.badge ? (
               <View
                 className={`rounded-full px-2 py-0.5 ${
-                  item.badge === 'Premium'
+                  item.highlight
                     ? 'bg-amber-100 dark:bg-amber-950'
                     : 'bg-muted'
                 }`}>
                 <Text
                   variant="caption2"
                   className={`font-medium ${
-                    item.badge === 'Premium'
+                    item.highlight
                       ? 'text-amber-700 dark:text-amber-300'
                       : 'text-muted-foreground'
                   }`}>

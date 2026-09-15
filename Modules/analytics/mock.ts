@@ -3,57 +3,83 @@
  */
 
 import { mockDelay } from "@/lib/mock-utils";
-import type { AnalyticsOverview, AnalyticsRange } from "./types";
+import type {
+  AnalyticsFunnel,
+  AnalyticsKpis,
+  AnalyticsRange,
+  AnalyticsSources,
+  ConversionRates,
+  Gated,
+} from "./types";
 
-const BASE: Omit<AnalyticsOverview, "range"> = {
-  isPremium: true,
-  hasEnoughData: true,
-  kpis: {
-    profileViews: { value: 18904, deltaPct: 24 },
-    saves: { value: 312, deltaPct: 18 },
-    messages: { value: 47, deltaPct: 12 },
-    meetings: { value: 14, deltaPct: 9 },
-    avgResponseMins: { value: 42, deltaPct: -15 },
-    bookings: { value: 12, deltaPct: 3 },
-  },
-  conversion: {
-    saveToMessage: 15,
-    messageToMeeting: 30,
-    meetingToBooking: 86,
-  },
-  finance: {
-    received: 133000,
-    pending: 273000,
-    quoted: 277000,
-  },
-  ads: {
-    roiX: 4.2,
-    impressions: 46600,
-    activeCampaigns: 2,
-  },
+const RANGE_DAYS: Record<AnalyticsRange, number> = { "7d": 7, "30d": 30, "90d": 90, "1y": 365 };
+
+const windowFor = (range: AnalyticsRange) => {
+  const to = new Date();
+  const from = new Date(to.getTime() - RANGE_DAYS[range] * 86400000);
+  return { range, from: from.toISOString(), to: to.toISOString() };
 };
 
-const RANGE_SCALE: Record<AnalyticsRange, number> = {
-  "7d": 0.25,
-  "30d": 1,
-  "90d": 2.6,
-  "1y": 9.4,
-};
+const scaled = (range: AnalyticsRange, n: number) => Math.round((n * RANGE_DAYS[range]) / 30);
 
 export const mockAnalyticsApi = {
-  getOverview: async (range: AnalyticsRange): Promise<AnalyticsOverview> => {
+  getKpis: async (range: AnalyticsRange): Promise<AnalyticsKpis> => {
     await mockDelay();
-    const scale = RANGE_SCALE[range];
     return {
-      ...BASE,
-      range,
-      kpis: {
-        profileViews: { value: Math.round(BASE.kpis.profileViews.value * scale), deltaPct: BASE.kpis.profileViews.deltaPct },
-        saves: { value: Math.round(BASE.kpis.saves.value * scale), deltaPct: BASE.kpis.saves.deltaPct },
-        messages: { value: Math.round(BASE.kpis.messages.value * scale), deltaPct: BASE.kpis.messages.deltaPct },
-        meetings: { value: Math.round(BASE.kpis.meetings.value * scale), deltaPct: BASE.kpis.meetings.deltaPct },
-        avgResponseMins: BASE.kpis.avgResponseMins,
-        bookings: { value: Math.round(BASE.kpis.bookings.value * scale), deltaPct: BASE.kpis.bookings.deltaPct },
+      ...windowFor(range),
+      profileViews: scaled(range, 18904),
+      saves: scaled(range, 312),
+      messagesReceived: scaled(range, 47),
+      meetingsScheduled: scaled(range, 14),
+      averageResponseMinutes: 42,
+      bookingsClosed: scaled(range, 12),
+    };
+  },
+
+  getFunnel: async (range: AnalyticsRange): Promise<AnalyticsFunnel> => {
+    await mockDelay();
+    return {
+      ...windowFor(range),
+      stages: [
+        { key: "views", count: scaled(range, 18904) },
+        { key: "saves", count: scaled(range, 312) },
+        { key: "messages", count: scaled(range, 47) },
+        { key: "meetings", count: scaled(range, 14) },
+        { key: "bookings", count: scaled(range, 12) },
+      ],
+    };
+  },
+
+  getConversion: async (range: AnalyticsRange): Promise<Gated<ConversionRates>> => {
+    await mockDelay();
+    return {
+      locked: false,
+      data: {
+        range,
+        available: true,
+        reason: null,
+        viewToSave: 1.7,
+        saveToMessage: 15.1,
+        messageToMeeting: 29.8,
+        meetingToBooking: 85.7,
+        overall: 0.1,
+      },
+    };
+  },
+
+  getSources: async (range: AnalyticsRange): Promise<Gated<AnalyticsSources>> => {
+    await mockDelay();
+    return {
+      locked: false,
+      data: {
+        ...windowFor(range),
+        adAttributedBookings: scaled(range, 3),
+        bySource: [
+          { source: "browse", conversations: scaled(range, 21), bookings: scaled(range, 5), revenue: scaled(range, 160000) },
+          { source: "ad", conversations: scaled(range, 11), bookings: scaled(range, 3), revenue: scaled(range, 98000) },
+          { source: "explore", conversations: scaled(range, 9), bookings: scaled(range, 2), revenue: scaled(range, 64000) },
+          { source: "direct", conversations: scaled(range, 6), bookings: scaled(range, 2), revenue: scaled(range, 52000) },
+        ],
       },
     };
   },

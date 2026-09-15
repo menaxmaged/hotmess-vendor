@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Platform } from "react-native";
 import { getErrorMessage, tokenManager } from "../../lib/api-client";
+import i18n from "../../lib/i18n";
 import { authApi } from "./api";
 import type { LoginResponse, VendorSignupRequest } from "./types";
 
@@ -140,31 +141,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // signIn/signUp deliberately don't touch `isLoading`: RootNavigator swaps the
+  // whole stack for a spinner while it's true, which unmounted the calling
+  // screen mid-request — a failed sign-in lost its error and its form.
   const signIn = async (email: string, password: string) => {
-    setIsLoading(true);
     try {
       const response = await authApi.login({ email, password });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const token = response.token ?? (response as any).access_token;
-      if (!response.user || !token) throw new Error("Invalid login response from server");
+      if (!response.user || !token) throw new Error(i18n.t("auth:login.invalidResponse"));
       login({ ...response, token });
     } catch (error) {
       throw new Error(getErrorMessage(error));
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const signUp = async (input: VendorSignupRequest) => {
-    setIsLoading(true);
     try {
       const response = await authApi.register(input);
-      if (!response.user || !response.token) throw new Error("Invalid signup response from server");
+      if (!response.user || !response.token) throw new Error(i18n.t("auth:signup.invalidResponse"));
       login(response);
     } catch (error) {
       throw new Error(getErrorMessage(error));
-    } finally {
-      setIsLoading(false);
     }
   };
 

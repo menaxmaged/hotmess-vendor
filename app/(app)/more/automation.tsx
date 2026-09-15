@@ -1,5 +1,6 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Card, DISPLAY, SectionLabel } from '@/components/brand';
@@ -20,16 +21,18 @@ import type { CoverageCityOption, CoverageOccasionOption } from '@/Modules/profi
 import { useSubscription } from '@/Modules/subscription/hooks';
 import { useTeamOverview } from '@/Modules/team/hooks';
 import { getErrorMessage } from '@/lib/api-client';
+import i18n from '@/lib/i18n';
+import { pickBilingual } from '@/lib/localized';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 type Mode = 'off' | 'welcome' | 'welcome_q' | 'welcome_files' | 'full';
 
-const MODES: { key: Mode; label: string; desc: string; premium: boolean }[] = [
-  { key: 'off', label: 'Off', desc: 'No auto-reply. Manual response only.', premium: false },
-  { key: 'welcome', label: 'Welcome only', desc: 'Sends a greeting with personalised merge fields.', premium: false },
-  { key: 'welcome_q', label: 'Welcome + questions', desc: 'Greeting, then 2–5 intake questions.', premium: true },
-  { key: 'welcome_files', label: 'Welcome + files', desc: 'Greeting, then attaches a lookbook or deck.', premium: true },
-  { key: 'full', label: 'Welcome + questions + files', desc: 'Full intake sequence.', premium: true },
+const MODES: { key: Mode; premium: boolean }[] = [
+  { key: 'off', premium: false },
+  { key: 'welcome', premium: false },
+  { key: 'welcome_q', premium: true },
+  { key: 'welcome_files', premium: true },
+  { key: 'full', premium: true },
 ];
 
 const MODE_TO_REAL: Record<Mode, WelcomeFlowMode> = {
@@ -89,6 +92,7 @@ function AutomationForm({
   isPremium: boolean;
 }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation(['automation', 'common']);
   const setWelcomeFlow = useSetWelcomeFlow();
 
   const [mode, setMode] = useState<Mode>(REAL_TO_MODE[initial.mode]);
@@ -100,7 +104,7 @@ function AutomationForm({
 
   const selectMode = (m: Mode, premium: boolean) => {
     if (premium && !isPremium) {
-      Alert.alert('Premium feature', 'Upgrade to Premium to unlock this automation mode.');
+      Alert.alert(t('premiumTitle'), t('premiumMode'));
       return;
     }
     setMode(m);
@@ -123,8 +127,8 @@ function AutomationForm({
         fileIds: [],
       },
       {
-        onSuccess: () => Alert.alert('Saved', 'Your automation settings have been saved.'),
-        onError: (err) => Alert.alert('Save failed', getErrorMessage(err)),
+        onSuccess: () => Alert.alert(t('savedTitle'), t('savedBody')),
+        onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
       },
     );
   };
@@ -135,7 +139,7 @@ function AutomationForm({
       contentContainerClassName="gap-4 px-5 pb-8 pt-4"
       showsVerticalScrollIndicator={false}>
       <View>
-        <SectionLabel>Automation mode</SectionLabel>
+        <SectionLabel>{t('modeTitle')}</SectionLabel>
         <View className="gap-2">
           {MODES.map((m) => {
             const on = mode === m.key;
@@ -151,18 +155,18 @@ function AutomationForm({
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text variant="footnote" className="font-bold">
-                      {m.label}
+                      {t(`modes.${m.key}.label`)}
                     </Text>
                     {m.premium ? (
                       <View className="rounded-full bg-amber-100 px-1.5 dark:bg-amber-950">
                         <Text variant="caption2" className="font-bold text-amber-700 dark:text-amber-300">
-                          Premium
+                          {t('common:badges.premium')}
                         </Text>
                       </View>
                     ) : null}
                   </View>
                   <Text variant="caption1" color="tertiary">
-                    {m.desc}
+                    {t(`modes.${m.key}.desc`)}
                   </Text>
                 </View>
                 {locked ? <Icon name="lock.fill" size={15} color={colors.grey} /> : null}
@@ -174,13 +178,13 @@ function AutomationForm({
 
       {mode !== 'off' ? (
         <View>
-          <SectionLabel>Welcome message</SectionLabel>
+          <SectionLabel>{t('welcomeMessage')}</SectionLabel>
           <Card className="gap-3">
             <TextInput
               value={message}
               onChangeText={setMessage}
               multiline
-              placeholder="Write your greeting…"
+              placeholder={t('messagePlaceholder')}
               placeholderTextColor={colors.grey}
               className="min-h-[96px] rounded-xl bg-muted px-3 py-3 text-foreground"
               style={{ textAlignVertical: 'top' }}
@@ -203,7 +207,7 @@ function AutomationForm({
 
       {showQuestions ? (
         <View>
-          <SectionLabel>Intake questions · {questions.length}/6</SectionLabel>
+          <SectionLabel>{t('intakeQuestions', { value: questions.length })}</SectionLabel>
           <View className="gap-2">
             {questions.map((q, i) => (
               <View key={`${q}-${i}`} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
@@ -221,14 +225,14 @@ function AutomationForm({
                 <TextInput
                   value={newQuestion}
                   onChangeText={setNewQuestion}
-                  placeholder="Add a question…"
+                  placeholder={t('addQuestionPlaceholder')}
                   placeholderTextColor={colors.grey}
                   className="flex-1 text-foreground"
                   onSubmitEditing={addQuestion}
                 />
                 <Pressable onPress={addQuestion} className="rounded-lg bg-primary px-3 py-2 active:opacity-80">
                   <Text variant="caption1" className="font-bold text-white">
-                    Add
+                    {t('add')}
                   </Text>
                 </Pressable>
               </View>
@@ -242,7 +246,7 @@ function AutomationForm({
         disabled={setWelcomeFlow.isPending}
         className={`items-center rounded-2xl bg-primary py-4 ${setWelcomeFlow.isPending ? 'opacity-50' : 'active:opacity-80'}`}>
         <Text className="font-bold text-white">
-          {setWelcomeFlow.isPending ? 'Saving…' : 'Save automation'}
+          {setWelcomeFlow.isPending ? t('saving') : t('save')}
         </Text>
       </Pressable>
 
@@ -251,13 +255,12 @@ function AutomationForm({
   );
 }
 
-const LEAD_SOURCE_OPTIONS: { key: LeadSource; label: string }[] = [
-  { key: 'browse', label: 'Browse' },
-  { key: 'explore', label: 'Explore' },
-  { key: 'ad', label: 'Ad' },
-  { key: 'task', label: 'Task' },
-  { key: 'direct', label: 'Direct' },
-];
+const LEAD_SOURCES: LeadSource[] = ['browse', 'explore', 'ad', 'task', 'direct'];
+
+const nameOf = (rows: { id: string }[], id: string) => {
+  const row = rows.find((r) => r.id === id);
+  return row ? pickBilingual(row, 'name') || id : id;
+};
 
 function describeCriteria(
   rule: AutoAssignRule,
@@ -266,19 +269,24 @@ function describeCriteria(
 ): string {
   const parts: string[] = [];
   if (rule.criteria.leadSource?.length) {
-    parts.push(rule.criteria.leadSource.map((s) => LEAD_SOURCE_OPTIONS.find((o) => o.key === s)?.label ?? s).join('/'));
+    parts.push(
+      rule.criteria.leadSource
+        .map((s) => (LEAD_SOURCES.includes(s) ? i18n.t(`automation:leadSources.${s}`) : s))
+        .join('/'),
+    );
   }
   if (rule.criteria.cityIds?.length) {
-    parts.push(rule.criteria.cityIds.map((id) => cities.find((c) => c.id === id)?.nameEn ?? id).join(', '));
+    parts.push(rule.criteria.cityIds.map((id) => nameOf(cities, id)).join(', '));
   }
   if (rule.criteria.occasionTypeIds?.length) {
-    parts.push(rule.criteria.occasionTypeIds.map((id) => occasions.find((o) => o.id === id)?.nameEn ?? id).join(', '));
+    parts.push(rule.criteria.occasionTypeIds.map((id) => nameOf(occasions, id)).join(', '));
   }
-  return parts.length > 0 ? parts.join(' · ') : 'Matches every lead';
+  return parts.length > 0 ? parts.join(' · ') : i18n.t('automation:matchesEvery');
 }
 
 function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation(['automation', 'common']);
   const { showActionSheetWithOptions } = useActionSheet();
   const { data: rules, isLoading: rulesLoading } = useAutoAssignRules();
   const { data: teamOverview } = useTeamOverview();
@@ -314,16 +322,16 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
 
   const openNewRuleForm = () => {
     if (!isPremium) {
-      Alert.alert('Premium feature', 'Upgrade to Premium to create auto-assign rules.');
+      Alert.alert(t('premiumTitle'), t('premiumRules'));
       return;
     }
     setShowForm(true);
   };
 
   const openAssigneePicker = () => {
-    const options = [...activeMembers.map((m) => m.name), 'Unassigned', 'Cancel'];
+    const options = [...activeMembers.map((m) => m.name), t('unassigned'), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: 'Assign to' },
+      { options, cancelButtonIndex: options.length - 1, title: t('assignTo') },
       (index) => {
         if (index === undefined || index === options.length - 1) return;
         if (index === activeMembers.length) {
@@ -351,7 +359,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
       },
       {
         onSuccess: resetForm,
-        onError: (err) => Alert.alert('Save failed', getErrorMessage(err)),
+        onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
       },
     );
   };
@@ -370,19 +378,19 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
   };
 
   const onDelete = (rule: AutoAssignRule) => {
-    Alert.alert('Delete rule', `Delete "${rule.name}"? This can't be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteRule.mutate(rule.id) },
+    Alert.alert(t('deleteTitle'), t('deleteBody', { name: rule.name }), [
+      { text: t('common:actions.cancel'), style: 'cancel' },
+      { text: t('common:actions.delete'), style: 'destructive', onPress: () => deleteRule.mutate(rule.id) },
     ]);
   };
 
   return (
     <View className="gap-2">
       <View className="flex-row items-center justify-between">
-        <SectionLabel>Lead auto-assign</SectionLabel>
+        <SectionLabel>{t('autoAssign')}</SectionLabel>
         <Pressable onPress={openNewRuleForm}>
           <Text variant="caption1" className={isPremium ? 'font-bold text-primary' : 'font-bold text-muted-foreground'}>
-            {isPremium ? 'New rule' : 'New rule 🔒'}
+            {isPremium ? t('newRule') : t('newRuleLocked')}
           </Text>
         </Pressable>
       </View>
@@ -391,7 +399,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
         <ActivityIndicator />
       ) : sortedRules.length === 0 && !showForm ? (
         <Text variant="footnote" color="tertiary">
-          No rules yet — new leads route to whoever picks them up.
+          {t('noRules')}
         </Text>
       ) : (
         <View className="gap-2">
@@ -408,7 +416,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
                       {describeCriteria(rule, cities, occasions)}
                     </Text>
                     <Text variant="caption2" color="tertiary" className="mt-0.5">
-                      {`→ ${assignee?.name ?? 'Unassigned'} · fired ${rule.firedCount}× this month`}
+                      {t('ruleLine', { assignee: assignee?.name ?? t('unassigned'), fired: rule.firedCount })}
                     </Text>
                   </View>
                   <View className="items-end gap-1">
@@ -416,7 +424,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
                       <Text
                         variant="caption2"
                         className={`font-bold ${rule.isActive ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                        {rule.isActive ? 'Active' : 'Paused'}
+                        {rule.isActive ? t('active') : t('paused')}
                       </Text>
                     </Pressable>
                     <View className="flex-row items-center gap-1">
@@ -445,30 +453,30 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
       {showForm ? (
         <Card className="gap-3">
           <Text variant="caption1" color="tertiary" className="font-bold">
-            NEW RULE
+            {t('newRuleTitle')}
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Rule name, e.g. Cairo weddings to Sara"
+            placeholder={t('ruleNamePlaceholder')}
             placeholderTextColor={colors.grey}
             className="rounded-lg border border-border px-3 py-2.5 text-foreground"
           />
 
           <View className="gap-1.5">
             <Text variant="caption2" color="tertiary">
-              LEAD SOURCE
+              {t('leadSource')}
             </Text>
             <View className="flex-row flex-wrap gap-2">
-              {LEAD_SOURCE_OPTIONS.map((opt) => (
+              {LEAD_SOURCES.map((source) => (
                 <Pressable
-                  key={opt.key}
-                  onPress={() => toggle(leadSources, opt.key, setLeadSources)}
-                  className={`rounded-full px-3 py-1.5 ${leadSources.includes(opt.key) ? 'bg-foreground' : 'border border-border'}`}>
+                  key={source}
+                  onPress={() => toggle(leadSources, source, setLeadSources)}
+                  className={`rounded-full px-3 py-1.5 ${leadSources.includes(source) ? 'bg-foreground' : 'border border-border'}`}>
                   <Text
                     variant="caption1"
-                    className={`font-bold ${leadSources.includes(opt.key) ? 'text-background' : 'text-foreground'}`}>
-                    {opt.label}
+                    className={`font-bold ${leadSources.includes(source) ? 'text-background' : 'text-foreground'}`}>
+                    {t(`leadSources.${source}`)}
                   </Text>
                 </Pressable>
               ))}
@@ -478,7 +486,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
           {cities.length > 0 ? (
             <View className="gap-1.5">
               <Text variant="caption2" color="tertiary">
-                CITY
+                {t('city')}
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {cities.map((city) => (
@@ -489,7 +497,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
                     <Text
                       variant="caption1"
                       className={`font-bold ${cityIds.includes(city.id) ? 'text-background' : 'text-foreground'}`}>
-                      {city.nameEn}
+                      {pickBilingual(city, 'name')}
                     </Text>
                   </Pressable>
                 ))}
@@ -500,7 +508,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
           {occasions.length > 0 ? (
             <View className="gap-1.5">
               <Text variant="caption2" color="tertiary">
-                OCCASION
+                {t('occasion')}
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {occasions.map((occasion) => (
@@ -511,7 +519,7 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
                     <Text
                       variant="caption1"
                       className={`font-bold ${occasionIds.includes(occasion.id) ? 'text-background' : 'text-foreground'}`}>
-                      {occasion.nameEn}
+                      {pickBilingual(occasion, 'name')}
                     </Text>
                   </Pressable>
                 ))}
@@ -521,13 +529,13 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
 
           <View className="gap-1.5">
             <Text variant="caption2" color="tertiary">
-              ASSIGN TO
+              {t('assignToLabel')}
             </Text>
             <Pressable
               onPress={openAssigneePicker}
               className="rounded-lg border border-border px-3 py-2.5">
               <Text variant="footnote">
-                {activeMembers.find((m) => m.id === assignToMemberId)?.name ?? 'Unassigned'}
+                {activeMembers.find((m) => m.id === assignToMemberId)?.name ?? t('unassigned')}
               </Text>
             </Pressable>
           </View>
@@ -538,12 +546,12 @@ function AutoAssignRulesSection({ isPremium }: { isPremium: boolean }) {
               disabled={!name.trim() || createRule.isPending}
               className={`flex-1 items-center rounded-lg bg-primary py-2.5 ${!name.trim() || createRule.isPending ? 'opacity-50' : 'active:opacity-80'}`}>
               <Text variant="caption1" className="font-bold text-white">
-                {createRule.isPending ? 'Adding…' : 'Add rule'}
+                {createRule.isPending ? t('adding') : t('addRule')}
               </Text>
             </Pressable>
             <Pressable onPress={resetForm} className="items-center rounded-lg border border-border px-4 py-2.5">
               <Text variant="caption1" className="font-bold">
-                Cancel
+                {t('common:actions.cancel')}
               </Text>
             </Pressable>
           </View>

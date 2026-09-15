@@ -1,18 +1,19 @@
-import type { Href } from 'expo-router';
-import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
 import { getErrorMessage } from '@/lib/api-client';
+import { openDeepLink } from '@/lib/deep-link';
+import { pickBilingual } from '@/lib/localized';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useCompleteChecklistItem, useOnboardingChecklist } from '@/Modules/onboarding-checklist/hooks';
 import type { ChecklistItem } from '@/Modules/onboarding-checklist/types';
 
 export default function OnboardingChecklistScreen() {
-  const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation(['studio', 'common']);
   const { data: items, isLoading, isError, error, refetch } = useOnboardingChecklist();
   const completeItem = useCompleteChecklistItem();
 
@@ -31,7 +32,7 @@ export default function OnboardingChecklistScreen() {
           {getErrorMessage(error)}
         </Text>
         <Pressable onPress={() => refetch()}>
-          <Text className="text-primary">Try again</Text>
+          <Text className="text-primary">{t('common:actions.retry')}</Text>
         </Pressable>
       </View>
     );
@@ -41,7 +42,8 @@ export default function OnboardingChecklistScreen() {
 
   const openItem = (item: ChecklistItem) => {
     if (item.deepLink) {
-      router.push(item.deepLink as Href);
+      // Backend paths (e.g. /vendor/profile) aren't app routes — map them.
+      openDeepLink(item.deepLink);
     }
   };
 
@@ -49,10 +51,10 @@ export default function OnboardingChecklistScreen() {
     <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-4 p-4">
       <View className="gap-1">
         <Text variant="title2" className="font-bold">
-          {`${completed} of ${items.length} steps done`}
+          {t('checklist.progress', { completed, total: items.length })}
         </Text>
         <Text variant="footnote" color="tertiary">
-          Finish setting up your studio so brides can find and book you.
+          {t('checklist.intro')}
         </Text>
       </View>
 
@@ -78,19 +80,19 @@ export default function OnboardingChecklistScreen() {
                   <Text
                     variant="subhead"
                     className={`font-medium ${done ? 'text-muted-foreground line-through' : ''}`}>
-                    {item.labelEn}
+                    {pickBilingual(item, 'label')}
                   </Text>
                   {item.isRequired && !done ? (
                     <View className="rounded-full bg-amber-100 px-1.5 dark:bg-amber-950">
                       <Text variant="caption2" className="font-bold text-amber-700 dark:text-amber-300">
-                        Required
+                        {t('checklist.required')}
                       </Text>
                     </View>
                   ) : null}
                 </View>
-                {item.descriptionEn ? (
+                {pickBilingual(item, 'description') ? (
                   <Text variant="caption1" color="tertiary">
-                    {item.descriptionEn}
+                    {pickBilingual(item, 'description')}
                   </Text>
                 ) : null}
               </Pressable>

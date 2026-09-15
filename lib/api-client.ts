@@ -16,6 +16,8 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
+import i18n, { currentLanguage } from "@/lib/i18n";
+
 const API_BASE_URL =
   Constants.expoConfig?.extra?.apiUrl ||
   process.env.EXPO_PUBLIC_API_URL ||
@@ -132,7 +134,12 @@ const createApiClient = (): AxiosInstance => {
   client.interceptors.response.use(
     (response) => response,
     async (error) => {
-      if (error.response?.status === 401) {
+      // A 401 from a credential check (wrong password, wrong/expired reset
+      // code or token) is an answer, not a dead session — logging out there
+      // would kick a signed-in user out of Change password on a typo.
+      const url: string = error.config?.url ?? "";
+      const isCredentialCheck = /\/auth\/(login|verify-reset-code|reset-password)\b/.test(url);
+      if (error.response?.status === 401 && !isCredentialCheck) {
         await tokenManager.remove();
         router.replace("/(auth)/login");
       }
@@ -268,9 +275,13 @@ export const toItem = <T>(payload: unknown, key?: string): T | null => {
 // Error helper
 // ---------------------------------------------------------------------------
 export const getErrorMessage = (error: any): string => {
-  // Check for API response message
-  if (error.response?.data?.message_en) {
-    return error.response.data.message_en;
+  // Every API response carries both languages; show the one the UI is in.
+  const data = error.response?.data;
+  if (currentLanguage() === "ar" && data?.message_ar) {
+    return data.message_ar;
+  }
+  if (data?.message_en) {
+    return data.message_en;
   }
 
   // Check for API response message (fallback)
@@ -285,43 +296,43 @@ export const getErrorMessage = (error: any): string => {
 
   // Check for HTTP status code specific messages
   if (error.response?.status === 401) {
-    return "Invalid email or password";
+    return i18n.t("common:errors.invalidCredentials");
   }
 
   if (error.response?.status === 400) {
-    return "Invalid request. Please check your input.";
+    return i18n.t("common:errors.badRequest");
   }
 
   if (error.response?.status === 403) {
-    return "Access denied.";
+    return i18n.t("common:errors.forbidden");
   }
 
   if (error.response?.status === 404) {
-    return "Resource not found.";
+    return i18n.t("common:errors.notFound");
   }
 
   if (error.response?.status === 409) {
-    return "Email already exists. Please try logging in or use a different email.";
+    return i18n.t("common:errors.conflict");
   }
 
   if (error.response?.status === 429) {
-    return "Too many requests. Please try again later.";
+    return i18n.t("common:errors.rateLimited");
   }
 
   if (error.response?.status >= 500) {
-    return "Server error. Please try again later.";
+    return i18n.t("common:errors.server");
   }
 
   // Check for network error
   if (error.code === "ECONNABORTED" || error.message === "timeout") {
-    return "Request timeout. Please check your connection and try again.";
+    return i18n.t("common:errors.timeout");
   }
 
   if (
     error.code === "ECONNREFUSED" ||
     error.message?.includes("ECONNREFUSED")
   ) {
-    return "Cannot connect to server. Please check if the backend is running.";
+    return i18n.t("common:errors.unreachable");
   }
 
   // Check for error.message (usually from thrown errors)
@@ -329,5 +340,5 @@ export const getErrorMessage = (error: any): string => {
     return error.message;
   }
 
-  return "An unexpected error occurred. Please try again.";
+  return i18n.t("common:errors.unknown");
 };

@@ -1,30 +1,23 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/nativewindui/Button';
 import { Text } from '@/components/nativewindui/Text';
+import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useUpdateBooking } from '@/Modules/profile/hooks';
 import type { AvailabilityBehaviour, PaymentMethod, ProfileBooking } from '@/Modules/profile/types';
 import { Chip } from './Chip';
 import { FieldLabel } from './FieldLabel';
 
-const AVAILABILITY_OPTIONS: { key: AvailabilityBehaviour; label: string }[] = [
-  { key: 'hide', label: 'Hide when booked' },
-  { key: 'show_busy', label: 'Show as unavailable' },
-  { key: 'allow_request', label: 'Always visible, allow requests' },
-];
+const AVAILABILITY_OPTIONS: AvailabilityBehaviour[] = ['hide', 'show_busy', 'allow_request'];
 
-const PAYMENT_METHOD_OPTIONS: { key: PaymentMethod; label: string }[] = [
-  { key: 'cash', label: 'Cash' },
-  { key: 'bank_transfer', label: 'Bank transfer' },
-  { key: 'card', label: 'Card' },
-  { key: 'instapay', label: 'Instapay' },
-  { key: 'wallet', label: 'Wallet' },
-];
+const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = ['cash', 'bank_transfer', 'card', 'instapay', 'wallet'];
 
 export function BookingTab({ initial }: { initial: ProfileBooking }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation('studio');
   const updateBooking = useUpdateBooking();
 
   const [depositPercent, setDepositPercent] = useState(initial.depositPercent?.toString() ?? '');
@@ -45,39 +38,45 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
   };
 
   const onSave = () => {
-    updateBooking.mutate({
-      depositPercent: depositPercent ? Number(depositPercent) : null,
-      paymentMethods,
-      maxBookingsPerDay: maxPerDay ? Number(maxPerDay) : null,
-      maxBookingsPerWeekend: maxPerWeekend ? Number(maxPerWeekend) : null,
-      minNoticeDays: minNotice ? Number(minNotice) : null,
-      availabilityBehaviour: availability,
-    });
+    updateBooking.mutate(
+      {
+        depositPercent: depositPercent ? Number(depositPercent) : null,
+        paymentMethods,
+        maxBookingsPerDay: maxPerDay ? Number(maxPerDay) : null,
+        maxBookingsPerWeekend: maxPerWeekend ? Number(maxPerWeekend) : null,
+        minNoticeDays: minNotice ? Number(minNotice) : null,
+        availabilityBehaviour: availability,
+      },
+      {
+        onSuccess: () => Alert.alert(t('saved'), t('booking.savedBody')),
+        onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
+      },
+    );
   };
 
   return (
     <ScrollView contentContainerClassName="gap-5 p-4">
       <View className="gap-1.5">
-        <FieldLabel>DEPOSIT %</FieldLabel>
+        <FieldLabel>{t('booking.deposit')}</FieldLabel>
         <TextInput
           value={depositPercent}
           onChangeText={setDepositPercent}
           keyboardType="numeric"
-          placeholder="e.g. 25"
+          placeholder={t('booking.depositPlaceholder')}
           placeholderTextColor={colors.grey}
           className="rounded-xl border border-border bg-card px-4 py-3 text-foreground"
         />
       </View>
 
       <View className="gap-1.5">
-        <FieldLabel>PAYMENT METHODS</FieldLabel>
+        <FieldLabel>{t('booking.paymentMethods')}</FieldLabel>
         <View className="flex-row flex-wrap gap-2">
           {PAYMENT_METHOD_OPTIONS.map((method) => (
             <Chip
-              key={method.key}
-              label={method.label}
-              selected={paymentMethods.includes(method.key)}
-              onPress={() => togglePayment(method.key)}
+              key={method}
+              label={t(`booking.methods.${method}`)}
+              selected={paymentMethods.includes(method)}
+              onPress={() => togglePayment(method)}
             />
           ))}
         </View>
@@ -85,7 +84,7 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
 
       <View className="flex-row gap-3">
         <View className="flex-1 gap-1.5">
-          <FieldLabel>MAX / DAY</FieldLabel>
+          <FieldLabel>{t('booking.maxDay')}</FieldLabel>
           <TextInput
             value={maxPerDay}
             onChangeText={setMaxPerDay}
@@ -95,7 +94,7 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
           />
         </View>
         <View className="flex-1 gap-1.5">
-          <FieldLabel>MAX / WEEKEND</FieldLabel>
+          <FieldLabel>{t('booking.maxWeekend')}</FieldLabel>
           <TextInput
             value={maxPerWeekend}
             onChangeText={setMaxPerWeekend}
@@ -107,7 +106,7 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
       </View>
 
       <View className="gap-1.5">
-        <FieldLabel>MINIMUM NOTICE (DAYS)</FieldLabel>
+        <FieldLabel>{t('booking.minNotice')}</FieldLabel>
         <TextInput
           value={minNotice}
           onChangeText={setMinNotice}
@@ -118,14 +117,14 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
       </View>
 
       <View className="gap-1.5">
-        <FieldLabel>AVAILABILITY BEHAVIOUR</FieldLabel>
+        <FieldLabel>{t('booking.availability')}</FieldLabel>
         <View className="gap-2">
-          {AVAILABILITY_OPTIONS.map((opt) => {
-            const selected = opt.key === availability;
+          {AVAILABILITY_OPTIONS.map((option) => {
+            const selected = option === availability;
             return (
               <Pressable
-                key={opt.key}
-                onPress={() => setAvailability(opt.key)}
+                key={option}
+                onPress={() => setAvailability(option)}
                 className={`flex-row items-center gap-3 rounded-xl border p-3 ${
                   selected ? 'border-primary bg-primary/5' : 'border-border bg-card'
                 }`}>
@@ -135,7 +134,7 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
                   }`}>
                   {selected ? <View className="h-2 w-2 rounded-full bg-primary" /> : null}
                 </View>
-                <Text variant="subhead">{opt.label}</Text>
+                <Text variant="subhead">{t(`booking.availabilityOptions.${option}`)}</Text>
               </Pressable>
             );
           })}
@@ -143,7 +142,7 @@ export function BookingTab({ initial }: { initial: ProfileBooking }) {
       </View>
 
       <Button onPress={onSave} disabled={updateBooking.isPending}>
-        <Text>{updateBooking.isPending ? 'Saving…' : 'Save booking rules'}</Text>
+        <Text>{updateBooking.isPending ? t('saving') : t('booking.save')}</Text>
       </Button>
     </ScrollView>
   );

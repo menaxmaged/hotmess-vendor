@@ -1,6 +1,7 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { UITextView } from 'react-native-uitextview';
 
 import { cn } from '@/lib/cn';
@@ -44,10 +45,15 @@ function Text({
   ...props
 }: React.ComponentProps<typeof UITextView> & VariantProps<typeof textVariants>) {
   const textClassName = React.useContext(TextClassContext);
+  const { i18n } = useTranslation();
+  // Arabic is a joined script: any letter-spacing (the `tracking-*` eyebrow
+  // labels) pulls the letters apart, so it's dropped while the UI is Arabic.
+  const style = i18n.language === 'ar' ? [props.style, { letterSpacing: 0 }] : props.style;
   return (
     <UITextView
       className={cn(textVariants({ variant, color }), textClassName, className)}
       {...props}
+      style={style}
     />
   );
 }

@@ -40,6 +40,7 @@ const core: ProfileCore = {
     "Connect Instagram",
     "Define your packages",
   ],
+  status: "active",
 };
 
 const categories: ProfileCategories = {
@@ -117,6 +118,11 @@ const categoryOptions: CategoryOptions = {
 };
 
 export const mockProfileApi = {
+  getCore: async (): Promise<ProfileCore> => {
+    await mockDelay(150);
+    return { ...core };
+  },
+
   getOverview: async (): Promise<ProfileOverview> => {
     await mockDelay();
     return {

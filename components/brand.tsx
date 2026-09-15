@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +26,13 @@ export function BackHeader({ title }: { title: string }) {
       <Text className={`${DISPLAY} text-2xl`}>{title}</Text>
     </View>
   );
+}
+
+// Tab screens with headerShown: false draw their own title; this keeps them
+// clear of the status bar / notch.
+export function SafeTop() {
+  const insets = useSafeAreaInsets();
+  return <View style={{ height: insets.top }} />;
 }
 
 export function ScreenTitle({ eyebrow, title }: { eyebrow?: string; title: string }) {
@@ -116,13 +124,14 @@ export function LoadingState() {
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center gap-2 p-6">
       <Text color="tertiary" className="text-center">
         {message}
       </Text>
       <Pressable onPress={onRetry}>
-        <Text className="text-primary">Try again</Text>
+        <Text className="text-primary">{t('actions.retry')}</Text>
       </Pressable>
     </View>
   );

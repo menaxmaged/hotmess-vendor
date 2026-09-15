@@ -2,6 +2,9 @@
  * Profile & Settings Feature Types
  */
 
+/** GET /vendor/profile `status`. Only `active` studios are visible to brides. */
+export type StudioStatus = "active" | "pending" | "suspended" | "delisted";
+
 export interface ProfileCore {
   id: string;
   businessName: string;
@@ -11,6 +14,7 @@ export interface ProfileCore {
   startingPrice: number | null;
   completenessPct: number;
   completenessMissing: string[];
+  status: StudioStatus;
 }
 
 export interface ProfileCategories {

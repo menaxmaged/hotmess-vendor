@@ -2,19 +2,24 @@
  * Profile & Settings Feature - API Service
  */
 
-import { api, apiFormData, USE_MOCK_DATA } from "@/lib/api-client";
+import { api, USE_MOCK_DATA } from "@/lib/api-client";
+import { filesApi, storageKeyUrl } from "@/Modules/files/api";
 import { mockProfileApi } from "./mock";
 import type {
     CategoryOptions,
     FileKind,
     Package,
     ProfileBooking,
+    ProfileCore,
     ProfileCategories,
     ProfileCoverage,
     ProfileOverview,
+    StudioStatus,
     ProfilePreview,
     SupplementaryFile,
+    UpdateProfileCoreInput,
     UploadFile,
+    UploadImage,
     UpsertPackageInput,
 } from "./types";
 
@@ -52,6 +57,7 @@ interface RealProfile {
   servedMarketIds?: string[];
   occasionTypeIds?: string[];
   bookingRules: Record<string, unknown> | null;
+  status?: StudioStatus;
 }
 
 interface RealPackage {
@@ -83,7 +89,27 @@ const mapFile = (file: RealFile): SupplementaryFile => ({
   byteSize: file.storedFile?.byteSize ?? 0,
 });
 
+const mapCore = (profile: RealProfile): ProfileCore => ({
+  id: profile.id,
+  businessName: profile.businessName,
+  tagline: profile.tagline ?? "",
+  bio: profile.bio ?? "",
+  coverImageUrl: storageKeyUrl(profile.coverImageKey),
+  startingPrice: profile.startingPriceAmount != null ? profile.startingPriceAmount / 100 : null,
+  completenessPct: profile.completenessScore,
+  completenessMissing: [],
+  // Missing on older payloads: treat as live rather than warn every vendor.
+  status: profile.status ?? "active",
+});
+
+const fetchCore = async (): Promise<ProfileCore> => {
+  const response = await api.get<unknown>("/vendor/profile");
+  return mapCore(unwrapPayload<RealProfile>(response.data));
+};
+
 const liveProfileApi = {
+  getCore: fetchCore,
+
   getOverview: async (): Promise<ProfileOverview> => {
     const [profileRes, packagesRes, filesRes] = await Promise.all([
       api.get<unknown>("/vendor/profile"),
@@ -97,17 +123,7 @@ const liveProfileApi = {
     const bookingRules = profile.bookingRules ?? {};
 
     return {
-      profile: {
-        id: profile.id,
-        businessName: profile.businessName,
-        tagline: profile.tagline ?? "",
-        bio: profile.bio ?? "",
-        coverImageUrl: profile.coverImageKey,
-        startingPrice:
-          profile.startingPriceAmount != null ? profile.startingPriceAmount / 100 : null,
-        completenessPct: profile.completenessScore,
-        completenessMissing: [],
-      },
+      profile: mapCore(profile),
       categories: {
         mainCategoryId: profile.mainCategory,
         // Example payload for `categories` is always `[]` in the live spec — shape unconfirmed,
@@ -162,14 +178,29 @@ const liveProfileApi = {
     };
   },
 
-  // Not part of this pass: the real PATCH /vendor/profile accepts tagline/bio/
-  // startingPriceAmount/coverImageKey/mainCategoryId but not businessName (immutable
-  // post-signup), and there's no cover-image upload endpoint in the live spec at all
-  // (only the coverImageKey *string field*, source unconfirmed). Rather than half-wire
-  // these against a guessed shape, both stay on the mock store — same as before this
-  // pass, just now inconsistent with the now-real `getOverview` read. See day-02.md.
-  updateCore: mockProfileApi.updateCore,
-  uploadCoverImage: mockProfileApi.uploadCoverImage,
+  // PATCH /vendor/profile: omitted = unchanged, null = cleared. `businessName`
+  // is not editable server-side at all. bio is capped at 160 by the column.
+  updateCore: async (input: UpdateProfileCoreInput): Promise<ProfileCore> => {
+    await api.patch<unknown>("/vendor/profile", {
+      ...(input.tagline !== undefined ? { tagline: input.tagline.trim() || null } : {}),
+      ...(input.bio !== undefined ? { bio: input.bio.trim() || null } : {}),
+      ...(input.startingPrice !== undefined
+        ? {
+            startingPriceAmount:
+              input.startingPrice == null ? null : Math.round(input.startingPrice * 100),
+          }
+        : {}),
+    });
+    return fetchCore();
+  },
+
+  // Studio media uploads as `vendor_portfolio` (not swept); the profile stores
+  // the returned storageKey, served back from /uploads/<key>.
+  uploadCoverImage: async (image: UploadImage): Promise<ProfileCore> => {
+    const stored = await filesApi.upload(image, "vendor_portfolio");
+    await api.patch<unknown>("/vendor/profile", { coverImageKey: stored.storageKey });
+    return fetchCore();
+  },
 
   updateCategories: async (input: ProfileCategories): Promise<ProfileCategories> => {
     await api.put<unknown>("/vendor/profile/categories", {
@@ -221,14 +252,7 @@ const liveProfileApi = {
   },
 
   uploadFile: async (file: UploadFile): Promise<SupplementaryFile> => {
-    const formData = new FormData();
-    formData.append("file", file as any);
-    // Kind is documented on this attach flow as `vendor_portfolio` even though the
-    // `/files` schema's own `kind` enum still only lists `chat_attachment` — trusting
-    // the flow description over the (apparently stale) enum, per the live spec.
-    formData.append("kind", "vendor_portfolio");
-    const uploadRes = await apiFormData.post<unknown>("/files", formData);
-    const stored = unwrapPayload<{ id: string }>(uploadRes.data);
+    const stored = await filesApi.upload(file, "vendor_portfolio");
 
     const attachRes = await api.post<unknown>("/vendor/profile/files", {
       fileId: stored.id,

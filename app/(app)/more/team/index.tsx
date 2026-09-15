@@ -1,11 +1,11 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import { Stack, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { InitialsAvatar } from '@/components/InitialsAvatar';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { Icon } from '@/components/nativewindui/Icon';
-import { ProgressIndicator } from '@/components/nativewindui/ProgressIndicator';
 import { Text } from '@/components/nativewindui/Text';
 import { getErrorMessage } from '@/lib/api-client';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -16,6 +16,7 @@ import type { TeamMember } from '@/Modules/team/types';
 
 export default function TeamOverviewScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['studio', 'common']);
   const { colors } = useColorScheme();
   const { showActionSheetWithOptions } = useActionSheet();
   const { data, isLoading, isError, error, refetch } = useTeamOverview();
@@ -39,7 +40,7 @@ export default function TeamOverviewScreen() {
           {getErrorMessage(error)}
         </Text>
         <Pressable onPress={() => refetch()}>
-          <Text className="text-primary">Try again</Text>
+          <Text className="text-primary">{t('common:actions.retry')}</Text>
         </Pressable>
       </View>
     );
@@ -53,7 +54,7 @@ export default function TeamOverviewScreen() {
   const openMemberSheet = (member: TeamMember) => {
     if (member.status === 'pending') {
       showActionSheetWithOptions(
-        { options: ['Cancel invite', 'Dismiss'], cancelButtonIndex: 1, destructiveButtonIndex: 0 },
+        { options: [t('team.cancelInvite'), t('team.dismiss')], cancelButtonIndex: 1, destructiveButtonIndex: 0 },
         (index) => {
           if (index === 0) revokeInvite.mutate(member.id);
         },
@@ -64,7 +65,7 @@ export default function TeamOverviewScreen() {
     if (member.isOwner) return;
 
     const assignableRoles = (roles ?? []).filter((r) => r.id !== member.roleId);
-    const options = [...assignableRoles.map((r) => `Change role to ${r.name}`), 'Remove from team', 'Dismiss'];
+    const options = [...assignableRoles.map((r) => t('team.changeRole', { role: r.name })), t('team.remove'), t('team.dismiss')];
     showActionSheetWithOptions(
       { options, cancelButtonIndex: options.length - 1, destructiveButtonIndex: options.length - 2 },
       (index) => {
@@ -100,12 +101,18 @@ export default function TeamOverviewScreen() {
         <View className="flex-row items-center justify-between">
           <Text variant="subhead" className="font-semibold">
             {seatLimits.max != null
-              ? `${seatsUsed} of ${seatLimits.max} seats used`
-              : `${seatsUsed} seats used`}
+              ? t('team.seatsOf', { used: seatsUsed, max: seatLimits.max })
+              : t('team.seats', { used: seatsUsed })}
           </Text>
         </View>
         {seatLimits.max != null ? (
-          <ProgressIndicator value={seatsUsed} max={seatLimits.max} />
+          // Plain bar: ProgressIndicator's reanimated %-width never painted on web.
+          <View className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <View
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.min(100, (seatsUsed / Math.max(1, seatLimits.max)) * 100)}%` }}
+            />
+          </View>
         ) : null}
       </View>
 
@@ -114,17 +121,17 @@ export default function TeamOverviewScreen() {
           onPress={() => router.push('/(app)/more/premium')}
           className="gap-1 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
           <Text variant="footnote" className="font-medium text-amber-800 dark:text-amber-300">
-            No seats left
+            {t('team.noSeats')}
           </Text>
           <Text variant="caption1" className="text-amber-700 dark:text-amber-400">
-            Upgrade to invite more team members.
+            {t('team.noSeatsBody')}
           </Text>
         </Pressable>
       ) : null}
 
       <View className="gap-2">
         <Text variant="caption2" color="tertiary" className="px-1">
-          MEMBERS
+          {t('team.members')}
         </Text>
         <View className="overflow-hidden rounded-xl border border-border bg-card">
           {members.map((member, index) => (
@@ -140,13 +147,13 @@ export default function TeamOverviewScreen() {
                   {member.name}
                 </Text>
                 <Text variant="caption1" color="tertiary" numberOfLines={1}>
-                  {member.roleName ?? 'No role'}
+                  {member.roleName ?? t('team.noRole')}
                 </Text>
               </View>
               {member.status === 'pending' ? (
                 <View className="rounded-full bg-muted px-2 py-0.5">
                   <Text variant="caption2" className="font-medium text-muted-foreground">
-                    Pending
+                    {t('team.pending')}
                   </Text>
                 </View>
               ) : null}
@@ -158,11 +165,11 @@ export default function TeamOverviewScreen() {
       <View className="gap-2">
         <View className="flex-row items-center justify-between px-1">
           <Text variant="caption2" color="tertiary">
-            ROLES
+            {t('team.roles')}
           </Text>
           <Pressable onPress={() => router.push('/(app)/more/team/role/new')}>
             <Text variant="caption1" className="text-primary">
-              New role
+              {t('team.newRole')}
             </Text>
           </Pressable>
         </View>
@@ -182,6 +189,7 @@ export default function TeamOverviewScreen() {
 }
 
 function RoleRow({ role, last, onPress }: { role: Role; last: boolean; onPress: () => void }) {
+  const { t } = useTranslation('studio');
   const { colors } = useColorScheme();
   return (
     <Pressable
@@ -195,13 +203,13 @@ function RoleRow({ role, last, onPress }: { role: Role; last: boolean; onPress: 
           {role.isBuiltIn ? (
             <View className="rounded-full bg-muted px-2 py-0.5">
               <Text variant="caption2" className="text-muted-foreground">
-                Built-in
+                {t('team.builtIn')}
               </Text>
             </View>
           ) : null}
         </View>
         <Text variant="caption1" color="tertiary">
-          {`${role.memberCount} ${role.memberCount === 1 ? 'member' : 'members'}`}
+          {t('team.memberCount', { count: role.memberCount })}
         </Text>
       </View>
       <Icon name="chevron.right" size={14} color={colors.grey} />

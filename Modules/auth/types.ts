@@ -4,10 +4,9 @@
 
 // The real backend's `User` schema (GET /auth/me, login/register data.user):
 // { id, email, name, accountType: bride|bridesmaid|vendor, status, createdAt }.
-// `phone`/`timezone`/`avatar_url` below are NOT part of that schema — they're
-// only ever populated by mockAuthApi (see ./mock.ts), since updateProfile has
-// no real backend endpoint yet (see ./api.ts). Kept optional so real login/me
-// responses type-check without them.
+// `phone` is refreshed from GET /users/me after an edit in Settings
+// (Modules/account); `timezone`/`avatar_url` aren't in the schema. Optional so
+// real login/me responses type-check without them.
 export interface User {
   id: number | string;
   name: string;
@@ -43,14 +42,50 @@ export interface VendorSignupRequest {
   answers?: Record<string, unknown>;
 }
 
-export interface SignupSchemaField {
-  key: string;
-  type: string;
+export type SignupFieldType =
+  | "text"
+  | "textarea"
+  | "email"
+  | "phone"
+  | "url"
+  | "number"
+  | "boolean"
+  | "select"
+  | "multiselect";
+
+export interface SignupFieldOption {
+  value: string;
   labelEn: string;
   labelAr: string;
+}
+
+/**
+ * Only `equals` appears in the spec's example; the others are accepted
+ * defensively. Unknown operators leave the field visible (see signup-form.ts).
+ */
+export interface SignupVisibleClause {
+  field: string;
+  equals?: unknown;
+  notEquals?: unknown;
+  in?: unknown[];
+  notIn?: unknown[];
+}
+
+export interface SignupSchemaField {
+  key: string;
+  type: SignupFieldType;
+  labelEn: string;
+  labelAr: string;
+  helpEn?: string;
+  helpAr?: string;
   required?: boolean;
+  /** Characters, value or selections, depending on `type`. */
   min?: number;
   max?: number;
+  /** Required for select/multiselect, absent otherwise. */
+  options?: SignupFieldOption[];
+  /** One clause or an ANDed array; only references EARLIER fields. */
+  visibleWhen?: SignupVisibleClause | SignupVisibleClause[];
 }
 
 export interface SignupSchemaStep {
@@ -64,12 +99,6 @@ export interface SignupSchema {
   version: number;
   publishedAt: string | null;
   steps: SignupSchemaStep[];
-}
-
-// OTP
-export interface VerifyOTPRequest {
-  email: string;
-  otp: string;
 }
 
 // Login
@@ -87,40 +116,3 @@ export interface LoginResponse {
   subscription?: SubscriptionBlock;
 }
 
-// Only used by mockAuthApi.checkAuth — the real client calls GET /auth/me
-// directly (see liveAuthApi.checkAuth in ./api.ts) and has no `authorized`
-// flag; a 401 there is the "not authorized" signal instead.
-export interface CheckAuthResponse {
-  authorized: boolean;
-  user?: User;
-  message?: string;
-}
-
-export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  token: string | null;
-}
-
-export interface ResendOTPRequest {
-  email: string;
-}
-
-export interface ResetPasswordRequest {
-  currentPassword: string;
-  newPassword: string;
-}
-
-export interface UpdateProfileRequest {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  dateOfBirth?: string;
-  gender?: "male" | "female";
-  timezone?: string;
-  avatar?: {
-    uri: string;
-    name: string;
-    type: string;
-  };
-}

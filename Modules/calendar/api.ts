@@ -33,7 +33,10 @@ const KIND_TO_TYPE: Record<string, EventType> = {
   tentative_hold: "tentative",
   blocked_time: "blocked",
 };
-const TYPE_TO_KIND: Record<EventType, string> = {
+/** POST /vendor/calendar/events `kind` — derived kinds (occasion_milestone, task_deadline) are rejected. */
+type StoredEventKind = "meeting" | "confirmed_booking" | "tentative_hold" | "blocked_time";
+
+const TYPE_TO_KIND: Record<EventType, StoredEventKind> = {
   meeting: "meeting",
   booking: "confirmed_booking",
   tentative: "tentative_hold",
@@ -54,6 +57,11 @@ const mapEvent = (raw: any): CalendarEvent => ({
   time: raw.startsAt ? formatTime(raw.startsAt) : null,
   brideName: null,
   city: null,
+  startsAt: raw.startsAt,
+  endsAt: raw.endsAt ?? null,
+  notes: raw.notes ?? null,
+  isDerived: !!raw.isDerived,
+  conversationId: raw.conversationId ?? null,
 });
 
 const monthRange = (): { from: string; to: string } => {
@@ -82,21 +90,20 @@ export interface Availability {
   date: string;
   isAvailable: boolean;
   behaviour: "hide" | "show_busy" | "allow_request";
-  reasons: string[];
+  reasons: ("min_notice" | "blocked_time" | "day_full" | "weekend_full" | "in_the_past" | string)[];
+  counts?: { confirmedBookings: number; tentativeHolds: number };
 }
 
 export const calendarApi = {
-  // Defaults to the current month so the existing screen/hook can keep
-  // calling this with no args — `from`/`to` are required server-side.
+  // `from`/`to` are required server-side; defaults to the current month.
   getEvents: async (range?: { from: string; to: string }): Promise<CalendarEvent[]> => {
     const { from, to } = range ?? monthRange();
     const response = await api.get<unknown>("/vendor/calendar", { params: { from, to } });
     return unwrapList<any>(response.data).map(mapEvent);
   },
 
-  // Live and real (full CRUD, richer than this module previously modeled),
-  // but not wired into any screen yet — calendar.tsx has no add/edit/delete
-  // affordance today. Exposed here for a future pass to build that UI against.
+  // Only the studio's own events are editable — derived rows (isDerived) belong
+  // to a conversation's confirmed meeting.
   createEvent: async (input: CreateEventInput): Promise<CalendarEvent> => {
     const response = await api.post<unknown>("/vendor/calendar/events", {
       kind: TYPE_TO_KIND[input.type],

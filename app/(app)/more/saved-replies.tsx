@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
@@ -12,6 +13,7 @@ import { useSubscription } from '@/Modules/subscription/hooks';
 
 export default function SavedRepliesScreen() {
   const { colors } = useColorScheme();
+  const { t } = useTranslation(['studio', 'common']);
   const { data: sub } = useSubscription();
   const isPremium = sub?.isPremium ?? false;
 
@@ -31,15 +33,15 @@ export default function SavedRepliesScreen() {
           setTitle('');
           setBody('');
         },
-        onError: (err) => Alert.alert('Save failed', getErrorMessage(err)),
+        onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
       },
     );
   };
 
   const onDelete = (id: string, replyTitle: string) => {
-    Alert.alert('Delete saved reply', `Delete "${replyTitle}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteReply.mutate(id) },
+    Alert.alert(t('savedReplies.deleteTitle'), t('savedReplies.deleteBody', { title: replyTitle }), [
+      { text: t('common:actions.cancel'), style: 'cancel' },
+      { text: t('common:actions.delete'), style: 'destructive', onPress: () => deleteReply.mutate(id) },
     ]);
   };
 
@@ -48,10 +50,10 @@ export default function SavedRepliesScreen() {
       <View className="flex-1 items-center justify-center gap-2 bg-background p-6">
         <Icon name="lock.fill" size={24} color={colors.grey} />
         <Text variant="subhead" className="text-center font-medium">
-          Saved replies is a Premium feature
+          {t('savedReplies.lockedTitle')}
         </Text>
         <Text variant="footnote" color="tertiary" className="text-center">
-          Upgrade to save and reuse quick replies across your inbox.
+          {t('savedReplies.lockedBody')}
         </Text>
       </View>
     );
@@ -78,7 +80,7 @@ export default function SavedRepliesScreen() {
       <View className="overflow-hidden rounded-xl border border-border bg-card">
         {(replies ?? []).length === 0 ? (
           <Text variant="footnote" color="tertiary" className="p-4">
-            No saved replies yet.
+            {t('savedReplies.empty')}
           </Text>
         ) : (
           (replies ?? []).map((reply, index) => (
@@ -105,26 +107,26 @@ export default function SavedRepliesScreen() {
 
       <View className="gap-2 rounded-xl border border-border bg-card p-4">
         <Text variant="caption1" color="tertiary" className="font-bold">
-          NEW SAVED REPLY
+          {t('savedReplies.newTitle')}
         </Text>
         <TextInput
           value={title}
           onChangeText={setTitle}
-          placeholder="Title, e.g. Pricing"
+          placeholder={t('savedReplies.titlePlaceholder')}
           placeholderTextColor={colors.grey}
           className="rounded-lg border border-border px-3 py-2.5 text-foreground"
         />
         <TextInput
           value={body}
           onChangeText={setBody}
-          placeholder="The reply text…"
+          placeholder={t('savedReplies.bodyPlaceholder')}
           placeholderTextColor={colors.grey}
           multiline
           className="min-h-20 rounded-lg border border-border px-3 py-2.5 text-foreground"
           style={{ textAlignVertical: 'top' }}
         />
         <Button onPress={onCreate} disabled={!title.trim() || !body.trim() || createReply.isPending}>
-          <Text>{createReply.isPending ? 'Saving…' : 'Add saved reply'}</Text>
+          <Text>{createReply.isPending ? t('saving') : t('savedReplies.add')}</Text>
         </Button>
       </View>
     </ScrollView>

@@ -3,12 +3,13 @@
  */
 
 import { getErrorMessage } from "@/lib/api-client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { inboxApi } from "./api";
 import type {
     AddNoteInput,
     AssignChatInput,
     ChatListParams,
+    ProposeMeetingInput,
     SendMessageInput,
     SetFollowUpInput,
     UpdateStatusInput,
@@ -20,6 +21,83 @@ export const inboxKeys = {
   list: (params?: ChatListParams) => [...inboxKeys.lists(), params ?? {}] as const,
   details: () => [...inboxKeys.all, "chat"] as const,
   detail: (chatId: string) => [...inboxKeys.details(), chatId] as const,
+  messages: (chatId: string) => [...inboxKeys.all, "messages", chatId] as const,
+  meetings: (chatId: string) => [...inboxKeys.all, "meetings", chatId] as const,
+  unread: () => [...inboxKeys.all, "unread-count"] as const,
+};
+
+export const useMessages = (chatId: string | undefined) => {
+  return useInfiniteQuery({
+    queryKey: inboxKeys.messages(chatId ?? ""),
+    queryFn: ({ pageParam }) => inboxApi.getMessages(chatId as string, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.hasMore ? (last.nextCursor ?? undefined) : undefined),
+    enabled: !!chatId,
+  });
+};
+
+// No realtime channel in the API — the badge polls.
+export const useUnreadCount = () => {
+  return useQuery({
+    queryKey: inboxKeys.unread(),
+    queryFn: inboxApi.getUnreadCount,
+    refetchInterval: 60_000,
+  });
+};
+
+export const useMarkRead = (chatId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (messageId: string) => inboxApi.markRead(chatId, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inboxKeys.unread() });
+      queryClient.invalidateQueries({ queryKey: inboxKeys.lists() });
+    },
+  });
+};
+
+export const useMeetings = (chatId: string | undefined) => {
+  return useQuery({
+    queryKey: inboxKeys.meetings(chatId ?? ""),
+    queryFn: () => inboxApi.getMeetings(chatId as string),
+    enabled: !!chatId,
+  });
+};
+
+const useInvalidateMeetings = (chatId: string) => {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: inboxKeys.meetings(chatId) });
+    queryClient.invalidateQueries({ queryKey: inboxKeys.messages(chatId) });
+    // confirm/cancel write or remove a calendar event
+    queryClient.invalidateQueries({ queryKey: ["calendar"] });
+  };
+};
+
+export const useProposeMeeting = (chatId: string) => {
+  const invalidate = useInvalidateMeetings(chatId);
+  return useMutation({
+    mutationFn: (input: Omit<ProposeMeetingInput, "chatId">) =>
+      inboxApi.proposeMeeting({ chatId, ...input }),
+    onSuccess: invalidate,
+  });
+};
+
+export const useConfirmMeeting = (chatId: string) => {
+  const invalidate = useInvalidateMeetings(chatId);
+  return useMutation({
+    mutationFn: (meetingId: string) => inboxApi.confirmMeeting(meetingId),
+    onSuccess: invalidate,
+  });
+};
+
+export const useCancelMeeting = (chatId: string) => {
+  const invalidate = useInvalidateMeetings(chatId);
+  return useMutation({
+    mutationFn: ({ meetingId, reason }: { meetingId: string; reason?: string }) =>
+      inboxApi.cancelMeeting(meetingId, reason),
+    onSuccess: invalidate,
+  });
 };
 
 export const useChats = (params?: ChatListParams) => {
@@ -50,6 +128,7 @@ const useInvalidateInbox = (chatId?: string) => {
     queryClient.invalidateQueries({ queryKey: inboxKeys.lists() });
     if (chatId) {
       queryClient.invalidateQueries({ queryKey: inboxKeys.detail(chatId) });
+      queryClient.invalidateQueries({ queryKey: inboxKeys.messages(chatId) });
     }
   };
 };

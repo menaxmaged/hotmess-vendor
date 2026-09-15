@@ -1,4 +1,6 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, View } from 'react-native';
 
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
@@ -14,17 +16,20 @@ import { useProfileOverview } from '@/Modules/profile/hooks';
 
 type ProfileSubTab = 'profile' | 'categories' | 'booking' | 'instagram' | 'files' | 'account';
 
-const TABS: { key: ProfileSubTab; label: string }[] = [
-  { key: 'profile', label: 'Profile' },
-  { key: 'categories', label: 'Categories' },
-  { key: 'booking', label: 'Booking' },
-  { key: 'instagram', label: 'Instagram' },
-  { key: 'files', label: 'Files' },
-  { key: 'account', label: 'Account' },
-];
+const TABS: ProfileSubTab[] = ['profile', 'categories', 'booking', 'instagram', 'files', 'account'];
 
 export default function ProfileScreen() {
-  const [tab, setTab] = useState<ProfileSubTab>('profile');
+  const { t } = useTranslation(['studio', 'common']);
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const linkedTab = TABS.find((key) => key === params.tab);
+  const [tab, setTab] = useState<ProfileSubTab>(linkedTab ?? 'profile');
+  // Deep links (checklist, notifications) can land here with a tab already open,
+  // including while the screen is still mounted from an earlier visit.
+  const [seenLink, setSeenLink] = useState(linkedTab);
+  if (linkedTab !== seenLink) {
+    setSeenLink(linkedTab);
+    if (linkedTab) setTab(linkedTab);
+  }
   const { data, isLoading, isError, error, refetch } = useProfileOverview();
 
   return (
@@ -34,20 +39,20 @@ export default function ProfileScreen() {
           data={TABS}
           horizontal
           showsHorizontalScrollIndicator={false}
-          keyExtractor={(t) => t.key}
+          keyExtractor={(key) => key}
           contentContainerClassName="gap-2 px-4"
           renderItem={({ item }) => {
-            const selected = item.key === tab;
+            const selected = item === tab;
             return (
               <Pressable
-                onPress={() => setTab(item.key)}
+                onPress={() => setTab(item)}
                 className={`rounded-full border px-3.5 py-1.5 ${
                   selected ? 'border-primary bg-primary' : 'border-border bg-card'
                 }`}>
                 <Text
                   variant="footnote"
                   className={selected ? 'font-semibold text-white' : 'font-medium'}>
-                  {item.label}
+                  {t(`profileTabs.${item}`)}
                 </Text>
               </Pressable>
             );
@@ -65,7 +70,7 @@ export default function ProfileScreen() {
             {getErrorMessage(error)}
           </Text>
           <Pressable onPress={() => refetch()}>
-            <Text className="text-primary">Try again</Text>
+            <Text className="text-primary">{t('common:actions.retry')}</Text>
           </Pressable>
         </View>
       ) : (

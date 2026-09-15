@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Pressable } from 'react-native';
 
 import { Text } from '@/components/nativewindui/Text';
@@ -10,6 +11,7 @@ interface StatusPillProps {
 }
 
 export function StatusPill({ status, onPress }: StatusPillProps) {
+  const { t } = useTranslation('inbox');
   const meta = STATUS_META[status];
 
   return (
@@ -18,7 +20,7 @@ export function StatusPill({ status, onPress }: StatusPillProps) {
       disabled={!onPress}
       className={`self-start rounded-full px-2.5 py-1 ${meta.bgClassName}`}>
       <Text variant="caption2" className={`font-medium ${meta.colorClassName}`}>
-        {meta.label}
+        {t(`status.${status}`)}
       </Text>
     </Pressable>
   );

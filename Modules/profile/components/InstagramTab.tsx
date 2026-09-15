@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Image, ScrollView, View } from 'react-native';
 
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
@@ -41,6 +42,7 @@ export function InstagramTab({ vendorId }: { vendorId: string }) {
 }
 
 function DisconnectedState({ configured }: { configured: boolean }) {
+  const { t } = useTranslation('studio');
   const connect = useConnectInstagram();
   const oauthReady = isInstagramOAuthConfigured();
 
@@ -50,19 +52,16 @@ function DisconnectedState({ configured }: { configured: boolean }) {
         <View className="flex-row items-center gap-2">
           <Icon name="exclamationmark" size={16} color="#B45309" />
           <Text variant="subhead" className="font-medium text-amber-800 dark:text-amber-300">
-            Instagram not connected
+            {t('instagram.notConnected')}
           </Text>
         </View>
         <Text variant="caption1" className="text-amber-700 dark:text-amber-400">
-          Connect your Instagram to automatically pull portfolio images and boost your profile
-          completeness score.
+          {t('instagram.pitch')}
         </Text>
       </View>
       {!configured || !oauthReady ? (
         <Text variant="caption2" color="tertiary">
-          Instagram connect isn&apos;t fully set up on this build yet — missing{' '}
-          {!oauthReady ? 'the app client ID' : "the backend's Meta app registration"}. The
-          button below will show a clear error rather than pretend to connect.
+          {t('instagram.unavailable')}
         </Text>
       ) : null}
       {connect.isError ? (
@@ -71,7 +70,7 @@ function DisconnectedState({ configured }: { configured: boolean }) {
         </Text>
       ) : null}
       <Button onPress={() => connect.mutate()} disabled={connect.isPending}>
-        <Text>{connect.isPending ? 'Connecting…' : 'Connect Instagram'}</Text>
+        <Text>{connect.isPending ? t('instagram.connecting') : t('instagram.connect')}</Text>
       </Button>
     </View>
   );
@@ -86,6 +85,7 @@ function ConnectedState({
   igUserId: string | null;
   lastSyncAt: string | null;
 }) {
+  const { t } = useTranslation('studio');
   const disconnect = useDisconnectInstagram();
   const { data: grid, isLoading: gridLoading, isError: gridError } = useInstagramPortfolio(vendorId);
 
@@ -94,18 +94,18 @@ function ConnectedState({
       <View className="gap-1 rounded-xl border border-border bg-card p-4">
         <View className="flex-row items-center justify-between">
           <Text variant="subhead" className="font-semibold">
-            {igUserId ? `IG user ${igUserId}` : 'Connected'}
+            {igUserId ? t('instagram.connectedAccount') : t('instagram.connected')}
           </Text>
           <View className="flex-row items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-950">
             <Icon name="checkmark.circle.fill" size={12} color="#16A34A" />
             <Text variant="caption2" className="font-medium text-green-700 dark:text-green-300">
-              Synced
+              {t('instagram.synced')}
             </Text>
           </View>
         </View>
         {lastSyncAt ? (
           <Text variant="caption1" color="tertiary">
-            {`Last synced ${formatDateTime(lastSyncAt)}`}
+            {t('instagram.lastSynced', { date: formatDateTime(lastSyncAt) })}
           </Text>
         ) : null}
       </View>
@@ -114,7 +114,7 @@ function ConnectedState({
         <ActivityIndicator />
       ) : gridError ? (
         <Text variant="footnote" color="tertiary">
-          Couldn&apos;t load the portfolio grid right now.
+          {t('instagram.gridError')}
         </Text>
       ) : grid && grid.posts.length > 0 ? (
         <View className="flex-row flex-wrap gap-2">
@@ -128,12 +128,12 @@ function ConnectedState({
         </View>
       ) : (
         <Text variant="footnote" color="tertiary">
-          No portfolio images synced yet.
+          {t('instagram.noPosts')}
         </Text>
       )}
 
       <Button variant="secondary" onPress={() => disconnect.mutate()} disabled={disconnect.isPending}>
-        <Text>{disconnect.isPending ? 'Disconnecting…' : 'Disconnect Instagram'}</Text>
+        <Text>{disconnect.isPending ? t('instagram.disconnecting') : t('instagram.disconnect')}</Text>
       </Button>
     </ScrollView>
   );

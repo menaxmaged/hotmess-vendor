@@ -1,11 +1,15 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/nativewindui/Button';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
+import { getErrorMessage } from '@/lib/api-client';
+import { localeTag } from '@/lib/i18n';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useStorageUsage } from '@/Modules/files/hooks';
 import {
     useDeleteFile,
     useDeletePackage,
@@ -17,10 +21,12 @@ import { FieldLabel } from './FieldLabel';
 
 export function FilesTab({ initial }: { initial: ProfileFiles }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation(['studio', 'common']);
   const upsertPackage = useUpsertPackage();
   const deletePackage = useDeletePackage();
   const uploadFile = useUploadFile();
   const deleteFile = useDeleteFile();
+  const usage = useStorageUsage();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -51,34 +57,53 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
   };
 
   const onDeletePackage = (id: string, packageName: string) => {
-    Alert.alert('Delete package', `Delete "${packageName}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deletePackage.mutate(id) },
+    Alert.alert(t('files.deletePackageTitle'), t('files.deletePackageBody', { name: packageName }), [
+      { text: t('common:actions.cancel'), style: 'cancel' },
+      { text: t('common:actions.delete'), style: 'destructive', onPress: () => deletePackage.mutate(id) },
+    ]);
+  };
+
+  // Files used to delete on a single tap; packages already asked first.
+  const onDeleteFile = (id: string, fileName: string) => {
+    Alert.alert(t('files.deleteFileTitle'), t('files.deleteFileBody', { name: fileName }), [
+      { text: t('common:actions.cancel'), style: 'cancel' },
+      {
+        text: t('common:actions.delete'),
+        style: 'destructive',
+        onPress: () => deleteFile.mutate(id, { onSuccess: () => void usage.refetch() }),
+      },
     ]);
   };
 
   const onUploadFile = async () => {
+    // POST /files refuses anything but jpeg/png/webp/gif/pdf.
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*'],
+      type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     });
     if (result.canceled || !result.assets[0]) return;
 
     const asset = result.assets[0];
-    uploadFile.mutate({
-      uri: asset.uri,
-      name: asset.name,
-      type: asset.mimeType ?? 'application/octet-stream',
-    });
+    uploadFile.mutate(
+      {
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType ?? 'application/octet-stream',
+      },
+      {
+        onSuccess: () => void usage.refetch(),
+        onError: (err) => Alert.alert(t('files.uploadFailed'), getErrorMessage(err)),
+      },
+    );
   };
 
   return (
     <ScrollView contentContainerClassName="gap-6 p-4">
       <View className="gap-3">
-        <FieldLabel>PACKAGES</FieldLabel>
+        <FieldLabel>{t('files.packages')}</FieldLabel>
         <View className="overflow-hidden rounded-xl border border-border bg-card">
           {initial.packages.length === 0 ? (
             <Text variant="footnote" color="tertiary" className="p-4">
-              No packages yet.
+              {t('files.noPackages')}
             </Text>
           ) : (
             initial.packages.map((pkg, index) => (
@@ -92,7 +117,7 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
                     {pkg.name}
                   </Text>
                   <Text variant="caption1" color="tertiary">
-                    {`EGP ${pkg.price.toLocaleString()} · ${pkg.soldCount} sold`}
+                    {t('files.packageLine', { price: pkg.price.toLocaleString(localeTag()), sold: pkg.soldCount })}
                   </Text>
                 </Pressable>
                 <Pressable onPress={() => onDeletePackage(pkg.id, pkg.name)} className="p-2">
@@ -105,19 +130,19 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
 
         <View className="gap-2 rounded-xl border border-border bg-card p-4">
           <Text variant="caption1" color="tertiary">
-            {editingId ? 'EDIT PACKAGE' : 'ADD PACKAGE'}
+            {editingId ? t('files.editPackage') : t('files.addPackage')}
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Package name"
+            placeholder={t('files.packageName')}
             placeholderTextColor={colors.grey}
             className="rounded-lg border border-border px-3 py-2.5 text-foreground"
           />
           <TextInput
             value={price}
             onChangeText={setPrice}
-            placeholder="Price (EGP)"
+            placeholder={t('files.price')}
             placeholderTextColor={colors.grey}
             keyboardType="numeric"
             className="rounded-lg border border-border px-3 py-2.5 text-foreground"
@@ -127,11 +152,11 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
               className="flex-1"
               onPress={onSubmit}
               disabled={!name.trim() || !price || upsertPackage.isPending}>
-              <Text>{editingId ? 'Update' : 'Add'}</Text>
+              <Text>{editingId ? t('files.update') : t('files.add')}</Text>
             </Button>
             {editingId ? (
               <Button variant="secondary" onPress={resetForm}>
-                <Text>Cancel</Text>
+                <Text>{t('common:actions.cancel')}</Text>
               </Button>
             ) : null}
           </View>
@@ -139,11 +164,24 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
       </View>
 
       <View className="gap-3">
-        <FieldLabel>SUPPLEMENTARY FILES</FieldLabel>
+        <FieldLabel>{t('files.supplementary')}</FieldLabel>
+        {usage.data && usage.data.capBytes > 0 ? (
+          <View className="gap-1">
+            <View className="h-2 overflow-hidden rounded-full bg-muted">
+              <View
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${Math.min(100, (usage.data.usedBytes / usage.data.capBytes) * 100)}%` }}
+              />
+            </View>
+            <Text variant="caption2" color="tertiary">
+              {t('files.storage', { used: formatBytes(usage.data.usedBytes), cap: formatBytes(usage.data.capBytes) })}
+            </Text>
+          </View>
+        ) : null}
         <View className="overflow-hidden rounded-xl border border-border bg-card">
           {initial.files.length === 0 ? (
             <Text variant="footnote" color="tertiary" className="p-4">
-              No files uploaded yet.
+              {t('files.noFiles')}
             </Text>
           ) : (
             initial.files.map((file, index) => (
@@ -155,13 +193,15 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
                 <Icon name="doc.fill" size={18} color={colors.foreground} />
                 <View className="flex-1">
                   <Text variant="subhead" numberOfLines={1}>
-                    {file.label || 'Untitled'}
+                    {file.label || t('files.untitled')}
                   </Text>
                   <Text variant="caption1" color="tertiary">
                     {`${file.kind} · ${(file.byteSize / 1024).toFixed(0)} KB`}
                   </Text>
                 </View>
-                <Pressable onPress={() => deleteFile.mutate(file.id)} className="p-2">
+                <Pressable
+                  onPress={() => onDeleteFile(file.id, file.label || t('files.untitled'))}
+                  className="p-2">
                   <Icon name="trash.fill" size={16} color={colors.grey} />
                 </Pressable>
               </View>
@@ -169,9 +209,15 @@ export function FilesTab({ initial }: { initial: ProfileFiles }) {
           )}
         </View>
         <Button variant="secondary" onPress={onUploadFile} disabled={uploadFile.isPending}>
-          <Text>{uploadFile.isPending ? 'Uploading…' : 'Upload file'}</Text>
+          <Text>{uploadFile.isPending ? t('files.uploading') : t('files.upload')}</Text>
         </Button>
       </View>
     </ScrollView>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }

@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +15,7 @@ const DISPLAY = 'font-display';
 
 export default function AcceptInviteScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
+  const { t } = useTranslation('auth');
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
@@ -28,10 +30,10 @@ export default function AcceptInviteScreen() {
     return (
       <View className="flex-1 items-center justify-center gap-2 bg-background p-6">
         <Text variant="title2" className="text-center font-bold">
-          This invite link is missing its token.
+          {t('invite.missingToken')}
         </Text>
         <Text variant="footnote" color="tertiary" className="text-center">
-          Ask whoever invited you to resend it.
+          {t('invite.missingTokenHint')}
         </Text>
       </View>
     );
@@ -46,11 +48,11 @@ export default function AcceptInviteScreen() {
   const onSubmit = async () => {
     setError(null);
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('invite.tooShort'));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords don't match.");
+      setError(t('invite.mismatch'));
       return;
     }
     try {
@@ -64,26 +66,26 @@ export default function AcceptInviteScreen() {
   return (
     <KeyboardAwareScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="flex-grow"
+      contentContainerStyle={{ flexGrow: 1 }}
       bottomOffset={24}>
       <View
         className="items-center justify-center bg-secondary px-6 pb-12"
         style={{ paddingTop: insets.top + 48 }}>
         <Text className={`${DISPLAY} text-white`} style={{ fontSize: 40, lineHeight: 44 }}>
-          join the{'\n'}team<Text className={`${DISPLAY} text-primary`} style={{ fontSize: 40 }}>.</Text>
+          {t('invite.hero')}<Text className={`${DISPLAY} text-primary`} style={{ fontSize: 40 }}>.</Text>
         </Text>
       </View>
 
       <View className="flex-1 gap-5 bg-background px-6 pt-10">
         <Text className={`${DISPLAY} text-foreground`} style={{ fontSize: 26 }}>
-          set up your account
+          {t('invite.title')}
         </Text>
 
         <View className="gap-3">
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Full name"
+            placeholder={t('invite.fullName')}
             placeholderTextColor={colors.grey}
             autoComplete="name"
             className="rounded-xl bg-muted px-4 py-4 text-foreground"
@@ -91,7 +93,7 @@ export default function AcceptInviteScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder={t('invite.password')}
             placeholderTextColor={colors.grey}
             secureTextEntry
             autoCapitalize="none"
@@ -100,7 +102,7 @@ export default function AcceptInviteScreen() {
           <TextInput
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            placeholder="Confirm password"
+            placeholder={t('invite.confirmPassword')}
             placeholderTextColor={colors.grey}
             secureTextEntry
             autoCapitalize="none"
@@ -119,7 +121,7 @@ export default function AcceptInviteScreen() {
           disabled={!canSubmit}
           className={`items-center rounded-xl bg-primary py-4 ${canSubmit ? 'active:opacity-80' : 'opacity-50'}`}>
           <Text className="text-white" style={{ fontSize: 17, fontWeight: '700' }}>
-            {acceptInvite.isPending ? 'Joining…' : 'Join the team'}
+            {acceptInvite.isPending ? t('invite.submitting') : t('invite.submit')}
           </Text>
         </Pressable>
       </View>

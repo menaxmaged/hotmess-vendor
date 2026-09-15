@@ -1,10 +1,13 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { Button } from '@/components/nativewindui/Button';
 import { Text } from '@/components/nativewindui/Text';
+import { getErrorMessage } from '@/lib/api-client';
+import { pickBilingual } from '@/lib/localized';
 import { useCategoryOptions, useUpdateCategories, useUpdateCoverage } from '@/Modules/profile/hooks';
 import type { ProfileCategories, ProfileCoverage } from '@/Modules/profile/types';
 import { Chip } from './Chip';
@@ -17,6 +20,7 @@ export function CategoriesTab({
   initial: ProfileCategories;
   coverage: ProfileCoverage;
 }) {
+  const { t } = useTranslation(['studio', 'common']);
   const { data: options, isLoading } = useCategoryOptions();
   const updateCategories = useUpdateCategories();
   const updateCoverage = useUpdateCoverage();
@@ -35,9 +39,9 @@ export function CategoriesTab({
 
   const openMainCategoryPicker = () => {
     if (!options) return;
-    const sheetOptions = [...options.categories.map((c) => c.nameEn), 'Cancel'];
+    const sheetOptions = [...options.categories.map((c) => pickBilingual(c, 'name')), t('common:actions.cancel')];
     showActionSheetWithOptions(
-      { options: sheetOptions, cancelButtonIndex: sheetOptions.length - 1, title: 'Main category' },
+      { options: sheetOptions, cancelButtonIndex: sheetOptions.length - 1, title: t('categories.mainCategorySheet') },
       (index) => {
         if (index === undefined || index === sheetOptions.length - 1) return;
         const next = options.categories[index]!;
@@ -51,7 +55,13 @@ export function CategoriesTab({
     const categoryIds = mainCategoryId
       ? Array.from(new Set([mainCategoryId, ...subcategoryIds]))
       : subcategoryIds;
-    updateCategories.mutate({ mainCategoryId, categoryIds });
+    updateCategories.mutate(
+      { mainCategoryId, categoryIds },
+      {
+        onSuccess: () => Alert.alert(t('saved'), t('categories.savedCategories')),
+        onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
+      },
+    );
   };
 
   const onSaveCoverage = () => {
@@ -62,7 +72,13 @@ export function CategoriesTab({
           .map((c) => c.marketId),
       ),
     );
-    updateCoverage.mutate({ cityIds, marketIds, occasionTypeIds });
+    updateCoverage.mutate(
+      { cityIds, marketIds, occasionTypeIds },
+      {
+        onSuccess: () => Alert.alert(t('saved'), t('categories.savedCoverage')),
+        onError: (err) => Alert.alert(t('saveFailed'), getErrorMessage(err)),
+      },
+    );
   };
 
   if (isLoading || !options) {
@@ -79,24 +95,24 @@ export function CategoriesTab({
   return (
     <ScrollView contentContainerClassName="gap-5 p-4">
       <View className="gap-1.5">
-        <FieldLabel>MAIN CATEGORY</FieldLabel>
+        <FieldLabel>{t('categories.mainCategory')}</FieldLabel>
         <Pressable
           onPress={openMainCategoryPicker}
           className="rounded-xl border border-border bg-card px-4 py-3">
           <Text className={mainCategory ? undefined : 'text-muted-foreground'}>
-            {mainCategory?.nameEn ?? 'Choose a category'}
+            {mainCategory ? pickBilingual(mainCategory, 'name') : t('categories.chooseCategory')}
           </Text>
         </Pressable>
       </View>
 
       {subcategoryOptions.length > 0 ? (
         <View className="gap-1.5">
-          <FieldLabel>SUBCATEGORIES</FieldLabel>
+          <FieldLabel>{t('categories.subcategories')}</FieldLabel>
           <View className="flex-row flex-wrap gap-2">
             {subcategoryOptions.map((sub) => (
               <Chip
                 key={sub.id}
-                label={sub.nameEn}
+                label={pickBilingual(sub, 'name')}
                 selected={subcategoryIds.includes(sub.id)}
                 onPress={() => toggle(subcategoryIds, sub.id, setSubcategoryIds)}
               />
@@ -106,16 +122,16 @@ export function CategoriesTab({
       ) : null}
 
       <Button onPress={onSaveCategories} disabled={updateCategories.isPending}>
-        <Text>{updateCategories.isPending ? 'Saving…' : 'Save categories'}</Text>
+        <Text>{updateCategories.isPending ? t('saving') : t('categories.saveCategories')}</Text>
       </Button>
 
       <View className="gap-1.5">
-        <FieldLabel>CITIES SERVED</FieldLabel>
+        <FieldLabel>{t('categories.citiesServed')}</FieldLabel>
         <View className="flex-row flex-wrap gap-2">
           {options.cities.map((city) => (
             <Chip
               key={city.id}
-              label={city.nameEn}
+              label={pickBilingual(city, 'name')}
               selected={cityIds.includes(city.id)}
               onPress={() => toggle(cityIds, city.id, setCityIds)}
             />
@@ -124,12 +140,12 @@ export function CategoriesTab({
       </View>
 
       <View className="gap-1.5">
-        <FieldLabel>OCCASIONS COVERED</FieldLabel>
+        <FieldLabel>{t('categories.occasionsCovered')}</FieldLabel>
         <View className="flex-row flex-wrap gap-2">
           {options.occasions.map((occasion) => (
             <Chip
               key={occasion.id}
-              label={occasion.nameEn}
+              label={pickBilingual(occasion, 'name')}
               selected={occasionTypeIds.includes(occasion.id)}
               onPress={() => toggle(occasionTypeIds, occasion.id, setOccasionTypeIds)}
             />
@@ -138,7 +154,7 @@ export function CategoriesTab({
       </View>
 
       <Button onPress={onSaveCoverage} disabled={updateCoverage.isPending}>
-        <Text>{updateCoverage.isPending ? 'Saving…' : 'Save coverage'}</Text>
+        <Text>{updateCoverage.isPending ? t('saving') : t('categories.saveCoverage')}</Text>
       </Button>
     </ScrollView>
   );

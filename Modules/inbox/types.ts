@@ -54,6 +54,8 @@ export interface ChatSummary {
   pinned: boolean;
   archived: boolean;
   contractValue?: number | null;
+  /** Server `isReadOnly` — the thread can no longer take bride-facing messages. Internal notes still work. */
+  readOnly?: boolean;
 }
 
 export interface ChatListParams {
@@ -81,6 +83,19 @@ export interface Attachment {
   type: string;
 }
 
+// GET /v1/conversations/{id}/messages `kind`. meeting_card and system are
+// written server-side only — a client can never send them.
+export type MessageKind = "text" | "file" | "meeting_card" | "system";
+
+export interface MessageFile {
+  id: string;
+  originalName: string | null;
+  mimeType: string;
+  byteSize: number;
+  /** Resolved to an absolute URL at the api.ts boundary. */
+  url: string;
+}
+
 export interface Message {
   id: string;
   chatId: string;
@@ -89,7 +104,52 @@ export interface Message {
   text?: string;
   attachments?: Attachment[];
   isNote?: boolean;
+  kind?: MessageKind;
+  file?: MessageFile | null;
+  /** The bytes were swept; the message row survives. */
+  fileExpired?: boolean;
+  meetingProposalId?: string | null;
+  readAt?: string | null;
   createdAt: string;
+}
+
+/** Keyset page — `nextCursor` names a fixed position, so new messages never shift a boundary. */
+export interface MessagesPage {
+  messages: Message[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface UnreadCount {
+  conversations: number;
+  messages: number;
+}
+
+export type MeetingStatus = "pending" | "confirmed" | "cancelled";
+
+export interface MeetingProposal {
+  id: string;
+  conversationId: string;
+  proposedByUserId: string;
+  /** The meeting's own datetime, not when it was proposed. */
+  proposedAt: string;
+  note: string | null;
+  status: MeetingStatus;
+  respondedByUserId: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
+export interface ProposeMeetingInput {
+  chatId: string;
+  proposedAt: string;
+  note?: string;
+}
+
+export interface OutgoingAttachment {
+  uri: string;
+  name: string;
+  type: string;
 }
 
 export interface PaymentSummary {
@@ -135,7 +195,8 @@ export interface ChatThread {
 export interface SendMessageInput {
   chatId: string;
   text?: string;
-  attachments?: { uri: string; name: string; type: string }[];
+  /** jpeg/png/webp/gif/pdf only — uploaded via POST /files first. */
+  attachment?: OutgoingAttachment;
 }
 
 export interface UpdateStatusInput {

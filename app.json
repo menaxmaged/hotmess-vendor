@@ -31,7 +31,10 @@
         {
           "photosPermission": "Hot Mess needs access to your photos to set your cover image and portfolio."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

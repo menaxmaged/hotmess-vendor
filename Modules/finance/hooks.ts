@@ -68,8 +68,7 @@ export const useDeletePayment = () => {
   });
 };
 
-// Report generation/export/poll — no UI consumes these yet (same pattern as
-// calendar CRUD in the day-0 pass). Exposed so they're callable and typed.
+// Report JSON, PDF export (202 → poll until done/failed) and recent exports.
 export const useReport = (type: ReportType, range: ReportDateRange = {}, enabled = false) => {
   return useQuery({
     queryKey: financeKeys.report(type, range),
@@ -79,7 +78,9 @@ export const useReport = (type: ReportType, range: ReportDateRange = {}, enabled
 };
 
 export const useExportReport = () => {
+  const queryClient = useQueryClient();
   return useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: financeKeys.exports() }),
     mutationFn: ({ type, range }: { type: ReportType; range?: ReportDateRange }) =>
       financeApi.exportReport(type, range),
     onError: (error) => console.error("Export report error:", getErrorMessage(error)),
@@ -91,6 +92,10 @@ export const useExportStatus = (exportId: string | undefined, enabled = false) =
     queryKey: [...financeKeys.exports(), exportId],
     queryFn: () => financeApi.getExportStatus(exportId!),
     enabled: enabled && !!exportId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "done" || status === "failed" ? false : 2000;
+    },
   });
 };
 
