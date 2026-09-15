@@ -35,6 +35,54 @@ Notifications module, calendar CRUD UI, forgot-password screens, vendor self-reg
 3. `git status --short` — diff scoped to exactly the intended files.
 4. Confirmed all 6 untouched modules (home/profile/team/finance/ads/analytics) still `USE_MOCK_DATA`-gated, no regression.
 
+## Spec re-audit series (days 12–18)
+
+> **Status: implemented 2026-09-15, not committed.** Re-audited against the live spec (368 ops). Every `api.*`/`apiFormData.*`/`apiClient.*` call site was cross-referenced by method + path, and every exported api method / hook was checked for a screen that reaches it. Day files have the full "what was actually built" / "verification actually performed" records.
+
+Result: **0 calls to routes that don't exist** (was 6 — ads, analytics, home), and every vendor-relevant spec op has a screen except the 2 push device-token routes. Bride-only routes (occasions, tasks, bridesmaids, community feed, browse/save vendors, bride-side conversation routes, bride CMS content, affiliate) are out of scope for this app.
+
+| Day | Scope | Notable finds / flags |
+|---|---|---|
+| 12 | Real message thread (paged), text + file attachments, mark read, inbox unread badge, meeting propose/confirm/cancel | no sender names in payload; DatePicker doesn't render on web |
+| 13 | Ads rewritten onto `/ads/placements` + `/vendor/ad-campaigns` (builder, pay, pause/resume, cancel, edit creative) | old paths never existed; no campaign item schema published; pay is 503 until a payment provider is configured; creatives upload as `vendor_portfolio` (chat attachments get swept) |
+| 14 | Analytics on the 4 real routes (premium 403 → locked), Home composed from analytics + finance + campaigns + subscription; `Modules/home` deleted | deltas, sparkline, monthly bars, team-today, smart-insight removed — no data source; conversion-rate unit undocumented |
+| 15 | In-app notifications, unread badge, preferences grid; shared deep-link mapper | checklist deep links were broken (backend paths ≠ app routes); **push device tokens blocked on adding `expo-notifications`** |
+| 16 | Forgot/change password (emailed code), account (name/phone/locale, delete account), profile basics + cover upload, storage usage; shared `Modules/files` | **401 interceptor logged users out on a wrong reset code — fixed**; cover image URL was a raw storage key — fixed |
+| 17 | Screens for unreachable hooks: calendar CRUD + month nav + availability, finance edit/delete + reports + PDF export polling, follow-up picker, quote detail, profile preview | exported PDFs can't be downloaded (no file-download route in the API) |
+| 18 | Schema-driven vendor sign-up screen | **global `isLoading` unmounted the login screen on every sign-in attempt — fixed** |
+| 19 | Request-body audit (TS type checker vs spec `requestBody`, 70 calls) | **contract clean**; **finance report range and new-payment date used the UTC date (a day early in Egypt) — fixed**; spec contradicts itself on upload `kind=vendor_portfolio` |
+| 20 | UI bug sweep (web screenshots of all 25 routes) | **inbox crashed on counts without `byAssignee` — fixed**; Home had no safe-area top inset; Calendar/Analytics titles doubled; `contentContainerClassName` is ignored on `KeyboardAwareScrollView`; **no i18n at all (AR/EN in PRD)**; no suspended-vendor state |
+| 21 | Interaction sweep (38 sheet/dialog/flow states) | **`Alert.alert` is a no-op on react-native-web — 52 confirms/errors silently did nothing; shimmed**; profile deep links now open the right tab (`?tab=`); finance empty-bride hint |
+| 22 | i18n foundation (AR/EN, RTL) + auth, tabs, More, Settings strings | typed keys (missing Arabic key fails `tsc`); `message_ar` errors; server `localePref` seeds, device choice wins; **Arabic copy needs native review**; Fraunces has no Arabic glyphs |
+| 23 | i18n: inbox list + chat detail (116 keys) | lead statuses, quotes, meetings, follow-ups; bride panel still shows raw payment/meeting type enums |
+| 24 | i18n: Home, Calendar, Analytics, Finance | `Intl` weekday initials + `localeTag()` dates; Arabic plurals; brand headings split into accent keys; web teal switch thumb fixed in 2 more places; **direction icons don't flip in RTL (Day 26)** |
+| 25 | i18n: Ads, Premium, Automation | `pickBilingual()` puts backend `nameAr` on screen (placements, cities, categories, occasions, plan); **vendor-facing dev jargon rewritten** (invoice save, payment method, PDF export); server `demandLabel`/campaign place names have no Arabic twin |
+| 26 | i18n: profile tabs, team/roles/invite, notifications + prefs, saved replies, checklist (201 keys) | **booking/categories/coverage saves gave no feedback — fixed**; file delete had no confirm — fixed; Instagram/WhatsApp dev jargon and raw IG id replaced; leftover-English scan: 0 real strings left |
+| 27 | RTL sweep | direction icons mirrored centrally in `Icon` (web/Android); one RTL-safe `Toggle` replaces 3 raw web-patched `Switch`es; interpolated values bidi-isolated in Arabic; number columns end-aligned on web |
+| 28 | Studio status (pending / suspended / delisted) | `GET /vendor/profile` `status` was dropped — now mapped; banner on Home, Inbox, More explains hidden profile / read-only chats; read-only composer already existed |
+
+Still open (need a decision or a backend change): backend to confirm `POST /files` accepts `kind=vendor_portfolio` (its own enum says only `chat_attachment`, while `/vendor/profile/files` requires it — cover, portfolio and ad creative uploads depend on it); money is `×100` everywhere (fine for EGP only); `expo-notifications` for push tokens; payment SDK for `PUT /subscription/payment-method` and for ad/subscription checkout to actually settle; a file-download route for finance exports; campaign/placement item schemas; live verification of everything (no vendor test account in this environment).
+
+## UI + i18n series (days 20–28) — open items
+
+> Status: implemented 2026-09-15, not committed. Each day file has "what was actually built" and "verification actually performed".
+
+These still need a person, a device, or the backend:
+- **Arabic copy review by a native speaker.** All translations were written in this pass, especially the brand-voice headings, lead statuses, and permission names.
+- **An Arabic display font.** Fraunces has no Arabic glyphs, so Arabic headings fall back to the system font.
+- **Native verification.** Nothing in days 20–28 ran on iOS or Android. Untested: the RTL restart path (`forceRTL`), SF Symbol mirroring on iOS, the Material chevron swap on Android, and safe-area insets on notched devices.
+- **Backend-provided English with no Arabic twin in the payload:**
+  - placement `demandLabel`
+  - campaign `placementName` / `cityName`
+  - profile `completenessMissing`
+  - notification titles and bodies
+  - built-in role names
+  - file `kind`
+  - finance report titles and columns
+  - `plan.nameAr` (if absent)
+- **No suspension reason for vendors** (admin-only field).
+- **Cosmetic:** the Arabic Home revenue line's word order around "·" on web; header-right buttons flush on web; DatePicker doesn't render on web (known since day 17).
+
 ## Next up
 
 **All 11 days done, 2026-08-13** (`plans/day-01-*.md` through `day-11-*.md`, each with a "what was actually built" section — read the specific day before touching that module again). All `tsc`/lint clean; none live-tested, no running Expo session or test/session account this pass, across every day.
